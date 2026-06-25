@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityHealth — AI Health Support Portal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/booking.css" />
+
+  <!-- Agora RTC Web SDK v4 -->
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       HOME PAGE
+  ══════════════════════════════════════════ -->
+
+  <nav class="nav practo-nav practo-lite-nav">
+    <div class="nav-logo">
+      <div class="logo-mark"><i class="ti ti-heart-rate-monitor"></i></div>
+      <div class="logo-text">CityHealth</div>
+    </div>
+    <div class="nav-links">
+      <a href="#departments" class="active">Find Doctors</a>
+      <a href="#lab-tests">Lab Tests</a>
+      <a href="#records">Health Records</a>
+    </div>
+    <div class="nav-cta practo-nav-cta">
+      <span class="location-pill"><i class="ti ti-map-pin"></i> Bengaluru <i class="ti ti-chevron-down"></i></span>
+      <button class="btn btn-outline">Login / Signup</button>
+    </div>
+  </nav>
+
+  <main class="home-page practo-home practo-three-tile-home">
+    <section class="practo-search-hero" id="find-doctor">
+      <div class="practo-search-row">
+        <div class="practo-location-box"><i class="ti ti-map-pin"></i><span>Bengaluru</span></div>
+        <div class="practo-search-box"><i class="ti ti-search"></i><span>Search doctors, clinics, specialties...</span></div>
+      </div>
+    </section>
+
+    <section class="home-main-tiles" id="tiles">
+      <article class="home-service-card appointment-card" id="navBookBtn">
+        <div class="service-visual service-ai"><i class="ti ti-robot"></i></div>
+        <div class="service-body">
+          <h2>Book an Online Appointment</h2>
+          <p>Talk to HealthBook AI and book instantly.</p>
+          <span class="service-link">Talk to Agent <i class="ti ti-arrow-right"></i></span>
+        </div>
+      </article>
+
+      <article class="home-service-card doctors-card" id="scrollDoctorsTile">
+        <div class="service-visual service-doc"><i class="ti ti-stethoscope"></i></div>
+        <div class="service-body">
+          <h2>Find Doctors</h2>
+          <p>Browse verified doctors department wise.</p>
+          <span class="service-link green">Explore Doctors <i class="ti ti-arrow-right"></i></span>
+        </div>
+      </article>
+
+      <article class="home-service-card lab-card" id="scrollLabTile">
+        <div class="service-visual service-lab"><i class="ti ti-test-pipe"></i></div>
+        <div class="service-body">
+          <h2>Lab Test</h2>
+          <p>Book trusted lab tests at home.</p>
+          <span class="service-link purple">Book a Test <i class="ti ti-arrow-right"></i></span>
+        </div>
+      </article>
+    </section>
+
+    <section class="department-section" id="departments">
+      <div class="section-row">
+        <div>
+          <h2>Find doctors by department</h2>
+          <p>Choose a department and book with doctors from the project data.</p>
+        </div>
+        <button class="link-btn" id="viewAllDepartmentsBtn">View all departments <i class="ti ti-arrow-right"></i></button>
+      </div>
+      <div class="department-grid practo-dept-grid">
+        <div class="dept-tile" data-dept-target="general-physician"><div class="dept-icon blue"><i class="ti ti-user-heart"></i></div><h3>General Physician</h3><p>3 Doctors</p><span>Fever, cough, headache, body pain</span><i class="ti ti-arrow-right"></i></div>
+        <div class="dept-tile" data-dept-target="ent-specialist"><div class="dept-icon teal"><i class="ti ti-ear"></i></div><h3>ENT Specialist</h3><p>3 Doctors</p><span>Ear, nose, throat and sinus issues</span><i class="ti ti-arrow-right"></i></div>
+        <div class="dept-tile" data-dept-target="dermatologist"><div class="dept-icon pink"><i class="ti ti-face-id"></i></div><h3>Dermatologist</h3><p>3 Doctors</p><span>Skin, hair, nails and rashes</span><i class="ti ti-arrow-right"></i></div>
+        <div class="dept-tile" data-dept-target="orthopaedic"><div class="dept-icon purple"><i class="ti ti-bone"></i></div><h3>Orthopaedic</h3><p>4 Doctors</p><span>Joints, bones, muscles and back pain</span><i class="ti ti-arrow-right"></i></div>
+        <div class="dept-tile" data-dept-target="gynaecologist"><div class="dept-icon rose"><i class="ti ti-baby-carriage"></i></div><h3>Gynaecologist</h3><p>3 Doctors</p><span>Women's health and pregnancy care</span><i class="ti ti-arrow-right"></i></div>
+        <div class="dept-tile" data-dept-target="cardiologist"><div class="dept-icon red"><i class="ti ti-heartbeat"></i></div><h3>Cardiologist</h3><p>3 Doctors</p><span>Heart, chest pain and BP concerns</span><i class="ti ti-arrow-right"></i></div>
+      </div>
+    </section>
+
+    <section class="doctor-dept-section" id="doctor-departments">
+      <div class="section-row">
+        <div>
+          <h2>Doctors department wise</h2>
+          <p>Shown from the same doctor dataset used in the booking flow.</p>
+        </div>
+      </div>
+      <div class="doctor-dept-grid">
+        <article class="doctor-dept-card" data-dept-card="general-physician" tabindex="-1"><h3><i class="ti ti-user-heart"></i> General Physician</h3><div class="doctor-mini"><b>Dr. Anil Kumar</b><span>★ 4.8 · ₹500 · 12 yrs</span></div><div class="doctor-mini"><b>Dr. Priya Sharma</b><span>★ 4.6 · ₹450 · 8 yrs</span></div><div class="doctor-mini"><b>Dr. Rajan Das</b><span>★ 4.7 · ₹500 · 15 yrs</span></div></article>
+        <article class="doctor-dept-card" data-dept-card="ent-specialist" tabindex="-1"><h3><i class="ti ti-ear"></i> ENT Specialist</h3><div class="doctor-mini"><b>Dr. Sunita Rao</b><span>★ 4.9 · ₹700 · 18 yrs</span></div><div class="doctor-mini"><b>Dr. Vikram Joshi</b><span>★ 4.5 · ₹650 · 10 yrs</span></div><div class="doctor-mini"><b>Dr. Nandini Pillai</b><span>★ 4.7 · ₹700 · 14 yrs</span></div></article>
+        <article class="doctor-dept-card" data-dept-card="dermatologist" tabindex="-1"><h3><i class="ti ti-face-id"></i> Dermatologist</h3><div class="doctor-mini"><b>Dr. Meera Iyer</b><span>★ 4.8 · ₹800 · 11 yrs</span></div><div class="doctor-mini"><b>Dr. Sanjay Kapoor</b><span>★ 4.6 · ₹750 · 9 yrs</span></div><div class="doctor-mini"><b>Dr. Lakshmi Suresh</b><span>★ 4.7 · ₹800 · 13 yrs</span></div></article>
+        <article class="doctor-dept-card" data-dept-card="orthopaedic" tabindex="-1"><h3><i class="ti ti-bone"></i> Orthopaedic</h3><div class="doctor-mini"><b>Dr. Rajiv Menon</b><span>★ 4.9 · ₹900 · 20 yrs</span></div><div class="doctor-mini"><b>Dr. Amit Bose</b><span>★ 4.6 · ₹850 · 12 yrs</span></div><div class="doctor-mini"><b>Dr. Kavya Rao</b><span>★ 4.7 · ₹900 · 16 yrs</span></div></article>
+        <article class="doctor-dept-card" data-dept-card="gynaecologist" tabindex="-1"><h3><i class="ti ti-baby-carriage"></i> Gynaecologist</h3><div class="doctor-mini"><b>Dr. Priya Nair</b><span>★ 4.9 · ₹900 · 14 yrs</span></div><div class="doctor-mini"><b>Dr. Rekha Sharma</b><span>★ 4.7 · ₹850 · 12 yrs</span></div><div class="doctor-mini"><b>Dr. Anjali Verma</b><span>★ 4.6 · ₹900 · 10 yrs</span></div></article>
+        <article class="doctor-dept-card" data-dept-card="cardiologist" tabindex="-1"><h3><i class="ti ti-heartbeat"></i> Cardiologist</h3><div class="doctor-mini"><b>Dr. Suresh Pillai</b><span>★ 4.9 · ₹1200 · 22 yrs</span></div><div class="doctor-mini"><b>Dr. Naresh Gupta</b><span>★ 4.7 · ₹1100 · 18 yrs</span></div><div class="doctor-mini"><b>Dr. Vidya Krishnan</b><span>★ 4.8 · ₹1200 · 15 yrs</span></div></article>
+      </div>
+    </section>
+
+    <section class="lab-home-section" id="lab-tests">
+      <div><i class="ti ti-test-pipe"></i></div>
+      <div><h2>Lab tests at home</h2><p>Book trusted lab tests and health checks. This tile is ready for your lab test flow.</p></div>
+      <button class="btn btn-primary">Book Lab Test</button>
+    </section>
+
+    <section class="home-stats">
+      <div><i class="ti ti-shield-check"></i><strong>19+</strong><span>Verified Doctors</span></div>
+      <div><i class="ti ti-users"></i><strong>5 Lakh+</strong><span>Happy Patients</span></div>
+      <div><i class="ti ti-calendar-check"></i><strong>1 Lakh+</strong><span>Appointments Booked</span></div>
+      <div><i class="ti ti-star"></i><strong>4.7/5</strong><span>Patient Rating</span></div>
+    </section>
+
+    <footer class="cityhealth-footer" id="records">
+      <div class="cityhealth-footer-grid">
+        <div class="cityhealth-footer-col">
+          <h4>CityHealth</h4>
+          <a href="#">About</a>
+          <a href="#">Blog</a>
+          <a href="#">Careers</a>
+          <a href="#">Press</a>
+          <a href="#">Contact Us</a>
+        </div>
+        <div class="cityhealth-footer-col">
+          <h4>For patients</h4>
+          <a href="#departments">Search for doctors</a>
+          <a href="#find-doctor">Search for clinics</a>
+          <a href="#find-doctor">Search for hospitals</a>
+          <a href="#lab-tests">Book Diagnostic Tests</a>
+          <a href="#lab-tests">Book Full Body Checkups</a>
+          <a href="#">Health Records</a>
+          <a href="#">Read health articles</a>
+          <a href="#">Health app</a>
+        </div>
+        <div class="cityhealth-footer-col">
+          <h4>For doctors</h4>
+          <a href="#doctor-departments">CityHealth Profile</a>
+          <h4 class="footer-subtitle">For clinics</h4>
+          <a href="#">CityHealth Reach</a>
+          <a href="#">Clinic Dashboard</a>
+          <a href="#">CityHealth Pro</a>
+        </div>
+        <div class="cityhealth-footer-col">
+          <h4>For hospitals</h4>
+          <a href="#">Hospital Profile</a>
+          <a href="#">CityHealth Reach</a>
+          <a href="#">CityHealth Drive</a>
+          <h4 class="footer-subtitle">For corporates</h4>
+          <a href="#">Wellness Plans</a>
+        </div>
+        <div class="cityhealth-footer-col">
+          <h4>More</h4>
+          <a href="#">Help</a>
+          <a href="#">Developers</a>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms & Conditions</a>
+          <a href="#">Healthcare Directory</a>
+        </div>
+        <div class="cityhealth-footer-col">
+          <h4>Social</h4>
+          <a href="#">Facebook</a>
+          <a href="#">Twitter</a>
+          <a href="#">LinkedIn</a>
+          <a href="#">YouTube</a>
+          <a href="#">GitHub</a>
+        </div>
+      </div>
+      <div class="cityhealth-footer-brand">
+        <span class="cityhealth-footer-dot"></span>
+        <span>CityHealth</span>
+        <span class="cityhealth-footer-dot"></span>
+      </div>
+      <div class="cityhealth-footer-copy">Copyright © 2026, CityHealth. All rights reserved.</div>
+    </footer>
+
+  </main>
+
+  <!-- Floating voice widget -->
+  <div class="widget-wrap" id="voiceWidget">
+    <div class="widget-card" id="widgetCard">
+      <div class="wc-header">
+        <div class="wc-header-left">
+          <div class="wc-avatar"><i class="ti ti-microphone"></i></div>
+          <div>
+            <div class="wc-title">AI Health Assistant</div>
+            <div class="wc-status"><span class="wc-dot" id="statusDot"></span><span id="statusText">Ready to help</span></div>
+          </div>
+        </div>
+        <button class="wc-close" id="widgetClose" aria-label="Close widget"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="wc-tabs">
+        <button class="wc-tab active" data-tab="find"><i class="ti ti-user-search"></i> Find a Doctor</button>
+        <button class="wc-tab" data-tab="book"><i class="ti ti-calendar-plus"></i> Book Appointment</button>
+      </div>
+      <div class="wc-body">
+        <div class="transcript-box">
+          <div class="t-label"><i class="ti ti-robot"></i> AI Agent is saying</div>
+          <div class="t-text" id="agentTranscript">"Hi! I can help you find the right doctor. How can I assist you today?"</div>
+        </div>
+        <div class="wave-row">
+          <div class="wave-lbl"><i class="ti ti-volume"></i> Agent speaking</div>
+          <div class="waveform" id="waveform" role="img" aria-label="Audio waveform"></div>
+        </div>
+        <div class="transcript-box">
+          <div class="t-label"><i class="ti ti-user"></i> You said</div>
+          <div class="t-text t-text--muted" id="userTranscript">"I have fever, sore throat, and body pain for two days."</div>
+        </div>
+        <div class="state-pill-wrap">
+          <div class="state-pill" id="statePill"><i class="ti ti-volume"></i><span id="stateLabel">Agent speaking…</span></div>
+        </div>
+        <div class="mic-area">
+          <div class="mic-ring" id="micRing">
+            <div class="ring-pulse rp1"></div>
+            <div class="ring-pulse rp2"></div>
+            <button class="mic-inner" id="micBtn" aria-label="Tap to speak"><i class="ti ti-microphone"></i></button>
+          </div>
+          <div class="mic-hint" id="micHint">Tap to speak when ready</div>
+        </div>
+        <div class="rec-label"><i class="ti ti-sparkles"></i> Recommended by AI</div>
+        <div class="rec-card">
+          <div class="rc-top">
+            <div class="rc-avatar">AK</div>
+            <div><div class="rc-name">Dr. Anil Kumar</div><div class="rc-spec">General Physician · Today 10:30 AM</div></div>
+            <span class="rc-rating"><i class="ti ti-star-filled"></i> 4.8</span>
+          </div>
+          <div class="rc-actions">
+            <button class="rc-btn rc-confirm" id="widgetBookBtn">Start full booking</button>
+            <button class="rc-btn rc-alt" id="otherSlotsBtn">Other slots</button>
+          </div>
+        </div>
+      </div>
+      <div class="wc-footer"><i class="ti ti-wave-sine"></i> Powered by Agora Conversational AI</div>
+    </div>
+    <div class="fab-wrap">
+      <button class="fab" id="fabBtn" aria-label="Open voice assistant"><i class="ti ti-microphone"></i></button>
+      <div class="fab-badge" id="fabBadge">2</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       BOOKING FLOW OVERLAY
+  ══════════════════════════════════════════ -->
+  <div class="booking-overlay" id="bookingOverlay" aria-hidden="true">
+
+    <!-- Shared header -->
+    <header class="bf-header">
+      <div class="bf-logo">
+        <div class="bf-logo-mark"><i class="ti ti-heart-rate-monitor"></i></div>
+        <span>CityHealth</span>
+      </div>
+      <div class="bf-progress" id="bfProgress">
+        <div class="bf-progress-steps">
+          <div class="bf-step active" data-step="1"><span>1</span><label>Verify</label></div>
+          <div class="bf-step-line"></div>
+          <div class="bf-step" data-step="2"><span>2</span><label>Symptoms</label></div>
+          <div class="bf-step-line"></div>
+          <div class="bf-step" data-step="3"><span>3</span><label>Doctors</label></div>
+          <div class="bf-step-line"></div>
+          <div class="bf-step" data-step="4"><span>4</span><label>Schedule</label></div>
+          <div class="bf-step-line"></div>
+          <div class="bf-step" data-step="5"><span>5</span><label>Confirm</label></div>
+        </div>
+      </div>
+      <button class="bf-close" id="bfClose" aria-label="Close booking"><i class="ti ti-x"></i></button>
+    </header>
+
+    <main class="bf-main">
+
+      <!-- Persistent patient profile card (left side, visible after verification) -->
+          <div class="vf-context-card patient-side-card" id="s1ProfileCard" style="display:none;">
+            <div class="history-card">
+              <div class="history-header">
+                <div class="history-avatar" id="s1PatientAv">RK</div>
+                <div>
+                  <div class="history-name" id="s1PatientName">Rahul Kumar</div>
+                  <div class="history-id" id="s1PatientId">Patient ID: CH-2024-00847</div>
+                </div>
+                <span class="verified-badge"><i class="ti ti-circle-check"></i> Verified</span>
+              </div>
+              <div class="history-grid">
+                <div class="history-item"><div class="history-item-label"><i class="ti ti-calendar"></i> Last visit</div><div class="history-item-val" id="s1LastVisit">12 Jan 2026 · Dr. Mehta</div></div>
+                <div class="history-item"><div class="history-item-label"><i class="ti ti-clipboard-list"></i> Total visits</div><div class="history-item-val" id="s1TotalVisits">3 consultations</div></div>
+              </div>
+              <!-- Current symptoms section, shown only after Step 2 detects symptoms -->
+              <div class="past-diagnosis" id="s1DiagnosisCard">
+                <div class="past-dx-label"><i class="ti ti-stethoscope"></i> Current symptoms detected</div>
+                <div class="past-dx-row">
+                  <span class="past-dx-tag" id="s1Diagnosis">Symptoms reported</span>
+                  <span class="past-dx-med"><i class="ti ti-clipboard-text"></i> <span id="s1Medication">Symptoms reported</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+      <!-- ─────────────────────────────────────────────────────
+           VOICE-FIRST BOOKING SCREENS
+           All 5 steps share the same layout:
+             Agent orb · waveform · agent bubble · user bubble
+             context card (changes per step) · mic button
+      ───────────────────────────────────────────────────── -->
+
+      <!-- ── SCREEN 1: Identity Verification ── -->
+      <section class="bf-screen active" id="bfScreen1">
+        <div class="vf-page">
+          <div class="vf-orb-wrap">
+            <div class="vf-orb-ring vf-orb-ring--1"></div>
+            <div class="vf-orb-ring vf-orb-ring--2"></div>
+            <div class="vf-orb-ring vf-orb-ring--3"></div>
+            <div class="vf-orb"><i class="ti ti-robot"></i></div>
+          </div>
+          <div class="vf-agent-name">HealthBook AI</div>
+          <div class="vf-state-pill" id="s1Pill"><span class="vf-dot"></span><span id="s1PillLabel">Listening</span></div>
+          <div class="vf-wave" id="s1Wave">
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+          </div>
+          <div class="vf-agent-bubble" id="s1AgentBubble">"Hi! I'm HealthBook AI. To get started, please say your registered 10-digit mobile number so I can pull up your profile."</div>
+          <div class="vf-user-row"><span class="vf-you-label"><i class="ti ti-user"></i> You</span><span class="vf-user-text" id="s1UserText">Say your mobile number…</span></div>
+
+          <!-- Step 1a: verifying spinner -->
+          <div class="vf-context-card" id="s1VerifyingCard" style="display:none;">
+            <div class="verifying-anim"><div class="verify-spinner"></div><div class="verify-text" id="s1VerifyText">Verifying your identity…</div></div>
+          </div>
+
+
+          <div class="vf-mic-wrap">
+            <div class="vf-mic-ring" id="s1MicRing">
+              <div class="vf-ring-pulse"></div><div class="vf-ring-pulse vf-ring-pulse--2"></div>
+              <button class="vf-mic-btn" id="s1MicBtn" aria-label="Tap to speak"><i class="ti ti-microphone"></i></button>
+            </div>
+            <div class="vf-mic-hint" id="s1MicHint">Say your mobile number</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SCREEN 2: Describe Symptoms ── -->
+      <section class="bf-screen" id="bfScreen2">
+        <div class="vf-page">
+          <div class="vf-orb-wrap">
+            <div class="vf-orb-ring vf-orb-ring--1"></div><div class="vf-orb-ring vf-orb-ring--2"></div><div class="vf-orb-ring vf-orb-ring--3"></div>
+            <div class="vf-orb"><i class="ti ti-robot"></i></div>
+          </div>
+          <div class="vf-agent-name">HealthBook AI</div>
+          <div class="vf-state-pill" id="s2Pill"><span class="vf-dot"></span><span id="s2PillLabel">Listening</span></div>
+          <div class="vf-wave" id="s2Wave">
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+          </div>
+          <div class="vf-agent-bubble" id="s2AgentBubble">"Welcome! How are you feeling today? Please describe your symptoms so I can find the right doctor for you."</div>
+          <div class="vf-user-row"><span class="vf-you-label"><i class="ti ti-user"></i> You</span><span class="vf-user-text" id="s2UserText">Describe your symptoms…</span></div>
+
+          <!-- Detected symptom tags -->
+          <div class="vf-context-card" id="s2ContextCard" style="display:none;">
+            <div class="vf-ctx-label"><i class="ti ti-clipboard-pulse"></i> Symptoms detected</div>
+            <div class="vf-symptom-tags" id="s2SymptomTags"></div>
+          </div>
+
+          <div class="vf-mic-wrap">
+            <div class="vf-mic-ring" id="s2MicRing">
+              <div class="vf-ring-pulse"></div><div class="vf-ring-pulse vf-ring-pulse--2"></div>
+              <button class="vf-mic-btn" id="s2MicBtn" aria-label="Tap to speak"><i class="ti ti-microphone"></i></button>
+            </div>
+            <div class="vf-mic-hint" id="s2MicHint">Describe your symptoms</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SCREEN 3: Doctor Recommendation ── -->
+      <section class="bf-screen" id="bfScreen3">
+        <div class="vf-page">
+          <div class="vf-orb-wrap">
+            <div class="vf-orb-ring vf-orb-ring--1"></div><div class="vf-orb-ring vf-orb-ring--2"></div><div class="vf-orb-ring vf-orb-ring--3"></div>
+            <div class="vf-orb"><i class="ti ti-robot"></i></div>
+          </div>
+          <div class="vf-agent-name">HealthBook AI</div>
+          <div class="vf-state-pill" id="s3Pill"><span class="vf-dot"></span><span id="s3PillLabel">Speaking</span></div>
+          <div class="vf-wave" id="s3Wave">
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+          </div>
+          <div class="vf-agent-bubble" id="s3AgentBubble">"Based on your symptoms I recommend Dr. Anil Kumar, General Physician. Shall I proceed?"</div>
+          <div class="vf-user-row"><span class="vf-you-label"><i class="ti ti-user"></i> You</span><span class="vf-user-text" id="s3UserText">Listening for your response…</span></div>
+
+          <!-- Department + multi-doctor list -->
+          <div class="vf-context-card" id="s3DoctorCard">
+            <div class="dept-header" id="s3DeptHeader">
+              <i class="ti ti-building-hospital"></i>
+              <span id="s3DeptName">General Medicine</span>
+              <span class="dept-badge" id="s3DeptBadge">Available Doctors</span>
+            </div>
+            <div class="doc-list" id="s3DocList">
+              <!-- populated by JS -->
+            </div>
+          </div>
+
+          <div class="vf-mic-wrap">
+            <div class="vf-mic-ring" id="s3MicRing">
+              <div class="vf-ring-pulse"></div><div class="vf-ring-pulse vf-ring-pulse--2"></div>
+              <button class="vf-mic-btn" id="s3MicBtn" aria-label="Tap to speak"><i class="ti ti-microphone"></i></button>
+            </div>
+            <div class="vf-mic-hint" id="s3MicHint">Say "Yes" to confirm</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SCREEN 4: Slot Selection ── -->
+      <section class="bf-screen" id="bfScreen4">
+        <div class="vf-page">
+          <div class="vf-orb-wrap">
+            <div class="vf-orb-ring vf-orb-ring--1"></div><div class="vf-orb-ring vf-orb-ring--2"></div><div class="vf-orb-ring vf-orb-ring--3"></div>
+            <div class="vf-orb"><i class="ti ti-robot"></i></div>
+          </div>
+          <div class="vf-agent-name">HealthBook AI</div>
+          <div class="vf-state-pill" id="s4Pill"><span class="vf-dot"></span><span id="s4PillLabel">Speaking</span></div>
+          <div class="vf-wave" id="s4Wave">
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+          </div>
+          <div class="vf-agent-bubble" id="s4AgentBubble">"Dr. Kumar has morning slots at 10:00, 10:30, and 11:00 AM, and evening slots at 5:00 and 5:30 PM tomorrow. Which would you prefer?"</div>
+          <div class="vf-user-row"><span class="vf-you-label"><i class="ti ti-user"></i> You</span><span class="vf-user-text" id="s4UserText">Listening for your preference…</span></div>
+
+          <!-- Calendar + slots (rendered by JS) -->
+          <div class="vf-context-card" id="s4CalendarCard">
+            <div class="cal-header">
+              <i class="ti ti-calendar-event"></i>
+              <span id="s4CalMonth">June 2026</span>
+            </div>
+            <!-- Day chips — next 7 days, populated by JS -->
+            <div class="cal-days" id="s4CalDays"></div>
+            <!-- Time slots for selected day -->
+            <div id="s4SlotsWrap">
+              <div class="vf-slots-group">
+                <div class="vf-slots-label"><i class="ti ti-sun"></i> Morning</div>
+                <div class="vf-slots-row" id="s4MorningSlots"></div>
+              </div>
+              <div class="vf-slots-group">
+                <div class="vf-slots-label"><i class="ti ti-moon"></i> Evening</div>
+                <div class="vf-slots-row" id="s4EveningSlots"></div>
+              </div>
+            </div>
+            <div class="vf-selected-slot" id="s4SelectedSlot"><i class="ti ti-calendar-check"></i> <span id="s4SelectedText">Choose a day and time</span></div>
+          </div>
+
+          <div class="vf-mic-wrap">
+            <div class="vf-mic-ring" id="s4MicRing">
+              <div class="vf-ring-pulse"></div><div class="vf-ring-pulse vf-ring-pulse--2"></div>
+              <button class="vf-mic-btn" id="s4MicBtn" aria-label="Tap to speak"><i class="ti ti-microphone"></i></button>
+            </div>
+            <div class="vf-mic-hint" id="s4MicHint">Say your preferred time</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SCREEN 5: Confirmation ── -->
+      <section class="bf-screen" id="bfScreen5">
+        <div class="vf-page">
+          <div class="vf-orb-wrap">
+            <div class="vf-orb-ring vf-orb-ring--1"></div><div class="vf-orb-ring vf-orb-ring--2"></div><div class="vf-orb-ring vf-orb-ring--3"></div>
+            <div class="vf-orb"><i class="ti ti-robot"></i></div>
+          </div>
+          <div class="vf-agent-name">HealthBook AI</div>
+          <div class="vf-state-pill" id="s5Pill"><span class="vf-dot"></span><span id="s5PillLabel">Confirming</span></div>
+          <div class="vf-wave" id="s5Wave">
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+            <div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div><div class="vf-bar"></div>
+          </div>
+          <div class="vf-agent-bubble" id="s5AgentBubble">"Updating your records now…"</div>
+          <div class="vf-user-row" id="s5UserRow" style="visibility:hidden;"><span class="vf-you-label"><i class="ti ti-user"></i> You</span><span class="vf-user-text" id="s5UserText"></span></div>
+
+          <!-- DB update animation -->
+          <div class="vf-context-card" id="s5DbCard">
+            <div class="db-anim">
+              <div class="db-icon"><i class="ti ti-database"></i></div>
+              <div class="db-label">Updating patient database…</div>
+              <div class="db-bar"><div class="db-bar-fill" id="dbBarFill"></div></div>
+              <div class="db-steps">
+                <div class="db-step" id="dbStep1"><i class="ti ti-loader-2 spin"></i> Creating appointment record…</div>
+                <div class="db-step" id="dbStep2" style="opacity:.3"><i class="ti ti-loader-2 spin"></i> Linking patient profile…</div>
+                <div class="db-step" id="dbStep3" style="opacity:.3"><i class="ti ti-loader-2 spin"></i> Scheduling reminders…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirmation card (replaces DB card) -->
+          <div class="vf-context-card" id="s5ConfirmCard" style="display:none;">
+            <div class="confirm-success-icon"><i class="ti ti-circle-check"></i></div>
+            <h2 class="confirm-title">Appointment Confirmed!</h2>
+            <p class="confirm-sub">Reminders sent via SMS &amp; WhatsApp.</p>
+            <div class="confirm-card">
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-user-md"></i> Doctor</span><span class="confirm-value" id="cDocName">Dr. Anil Kumar</span></div>
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-stethoscope"></i> Specialty</span><span class="confirm-value" id="cDocSpec">General Physician</span></div>
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-building-hospital"></i> Clinic</span><span class="confirm-value">City Health Clinic</span></div>
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-calendar"></i> Date</span><span class="confirm-value" id="cDate">Tomorrow, 28 May 2026</span></div>
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-clock"></i> Time</span><span class="confirm-value confirm-value--blue" id="cTime">10:30 AM</span></div>
+              <div class="confirm-row"><span class="confirm-label"><i class="ti ti-id-badge"></i> Patient</span><span class="confirm-value" id="cPatient">—</span></div>
+              <div class="confirm-row" style="border:none;"><span class="confirm-label"><i class="ti ti-shield-check"></i> Status</span><span class="confirmed-badge"><i class="ti ti-circle-check"></i> Confirmed</span></div>
+            </div>
+            <div class="reminder-section">
+              <div class="reminder-title"><i class="ti ti-bell-ringing"></i> Smart reminders scheduled</div>
+              <div class="reminder-list">
+                <div class="reminder-item"><div class="reminder-icon reminder-icon--blue"><i class="ti ti-message"></i></div><div><div class="reminder-when">24 hours before</div><div class="reminder-channels"><span class="r-chip">SMS</span><span class="r-chip">WhatsApp</span><span class="r-chip">Email</span></div></div></div>
+                <div class="reminder-item"><div class="reminder-icon reminder-icon--green"><i class="ti ti-bell"></i></div><div><div class="reminder-when">2 hours before</div><div class="reminder-channels"><span class="r-chip">Push</span><span class="r-chip">SMS</span></div></div></div>
+                <div class="reminder-item"><div class="reminder-icon reminder-icon--amber"><i class="ti ti-clock-hour-4"></i></div><div><div class="reminder-when">30 minutes before</div><div class="reminder-channels"><span class="r-chip">Push</span><span class="r-chip">WhatsApp</span></div></div></div>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-full" id="bfDoneBtn" style="margin-top:16px;"><i class="ti ti-home"></i> Back to Home</button>
+          </div>
+
+          <div class="vf-mic-wrap" id="s5MicWrap" style="visibility:hidden;">
+            <div class="vf-mic-ring"><div class="vf-ring-pulse"></div><div class="vf-ring-pulse vf-ring-pulse--2"></div>
+              <button class="vf-mic-btn" aria-label="Mic off"><i class="ti ti-microphone-off"></i></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Minimal footer: step label + Agora tag only -->
+    <footer class="bf-footer">
+      <div class="bf-step-label" id="bfStepLabel">Step 1 of 5 — Describing symptoms</div>
+      <div class="bf-agora-tag"><i class="ti ti-wave-sine"></i> Agora Conversational AI</div>
+    </footer>
+
+  </div><!-- /booking-overlay -->
+
+  <!-- CityHealth Agora integration (load order matters) -->
+  <script src="js/config.js"></script>
+  <script src="js/agora.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/booking.js"></script>
+
+<script id="cityHealthPatientCardOnlyFix">
+(function () {
+  var symptoms = ["fever","sore throat","cough","cold","headache","body pain","runny nose","fatigue","chest pain","stomach pain","nausea","vomiting","dizziness","shortness of breath"];
+  var scheduled = false, updating = false;
+
+  function norm(v){ return (v||"").toLowerCase().replace(/\s+/g," ").trim(); }
+
+  function isHomePage(){
+    var t = norm(document.body.innerText || "");
+    return t.indexOf("book an online appointment") >= 0 && t.indexOf("find doctors by department") >= 0;
+  }
+
+  function isAgentConversationPage(){
+    var t = norm(document.body.innerText || "");
+    return t.indexOf("healthbook ai") >= 0 && (t.indexOf("agent speaking") >= 0 || t.indexOf("listening for your voice") >= 0 || t.indexOf("agora conversational ai") >= 0);
+  }
+
+  function randDate(){
+    if(!window.__chLastVisit){
+      var d = new Date();
+      d.setDate(d.getDate() - (Math.floor(Math.random()*180)+5));
+      window.__chLastVisit = d.toLocaleDateString("en-IN", {day:"2-digit", month:"short", year:"numeric"});
+    }
+    return window.__chLastVisit;
+  }
+
+  function randVisits(){
+    if(!window.__chVisits) window.__chVisits = Math.floor(Math.random()*9)+2;
+    return window.__chVisits + " consultations";
+  }
+
+  function foundSymptoms(){
+    var t = norm(document.body.innerText);
+    var out = [];
+    symptoms.forEach(function(s){ if(t.indexOf(s) >= 0 && out.indexOf(s) < 0) out.push(s); });
+    return out.length ? out.slice(0,4) : ["fever","sore throat"];
+  }
+
+  function ensureCard(){
+    var card = document.getElementById("cityHealthDynamicPatientCard");
+    if(card) return card;
+
+    var wrap = document.createElement("div");
+    wrap.id = "cityHealthLeftPatientCardWrap";
+    wrap.style.cssText = "position:fixed;left:24px;top:104px;width:360px;max-width:calc(100vw - 48px);z-index:10;";
+    wrap.innerHTML = '<aside id="cityHealthDynamicPatientCard" style="display:none;background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 20px 45px rgba(15,45,90,.12);overflow:hidden;font-family:inherit;color:#111827;">' +
+      '<div style="display:flex;gap:16px;align-items:center;padding:24px 24px 20px;">' +
+      '<div id="chPatientInitials" style="width:64px;height:64px;border-radius:50%;background:#dbeafe;color:#1d4ed8;display:grid;place-items:center;font-weight:800;font-size:22px;">VP</div>' +
+      '<div style="min-width:0;flex:1;"><div id="chPatientName" style="font-weight:800;font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Verified Patient</div><div style="color:#98a2b3;font-size:15px;margin-top:4px;">Patient verified from conversation</div></div>' +
+      '<div style="background:#dcfce7;color:#166534;border-radius:999px;padding:8px 14px;font-weight:800;">⊙ Verified</div></div>' +
+      '<div style="border-top:1px solid #eef2f7;padding:20px 24px;"><div style="color:#98a2b3;font-weight:800;letter-spacing:.06em;font-size:14px;">▣ LAST VISIT</div><div id="chLastVisit" style="font-size:18px;font-weight:700;margin-top:8px;"></div></div>' +
+      '<div style="border-top:1px solid #eef2f7;padding:20px 24px;"><div style="color:#98a2b3;font-weight:800;letter-spacing:.06em;font-size:14px;">▣ TOTAL VISITS</div><div id="chTotalVisits" style="font-size:18px;font-weight:700;margin-top:8px;"></div></div>' +
+      '<div style="border-top:1px solid #eef2f7;padding:20px 24px;"><div style="color:#667085;font-weight:800;letter-spacing:.06em;font-size:14px;">♧ CURRENT SYMPTOMS</div><div style="margin-top:12px;"><span id="chPrimarySymptom" style="display:inline-block;background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:8px 14px;font-weight:800;"></span></div><div id="chOtherSymptoms" style="color:#667085;font-size:17px;margin-top:14px;"></div></div>' +
+      '</aside>';
+    document.body.appendChild(wrap);
+    return document.getElementById("cityHealthDynamicPatientCard");
+  }
+
+  function patientName(){
+    var txt = document.body.innerText || "";
+    var m = txt.match(/welcome back,\s*([^\.\n"]+)/i);
+    if(m && m[1]) return m[1].trim();
+    return "Verified Patient";
+  }
+
+  function initials(name){
+    return (name||"VP").trim().split(/\s+/).slice(0,2).map(function(p){return p.charAt(0);}).join("").toUpperCase() || "VP";
+  }
+
+  function updateCard(){
+    var card = ensureCard();
+
+    if (isHomePage() || !isAgentConversationPage()) {
+      card.style.display = "none";
+      return;
+    }
+
+    var txt = document.body.innerText || "";
+    if(!/identity verified|welcome back/i.test(txt)) {
+      card.style.display = "none";
+      return;
+    }
+
+    var name = patientName(), s = foundSymptoms();
+    card.style.display = "block";
+    document.getElementById("chPatientName").textContent = name;
+    document.getElementById("chPatientInitials").textContent = initials(name);
+    document.getElementById("chLastVisit").textContent = randDate();
+    document.getElementById("chTotalVisits").textContent = randVisits();
+    document.getElementById("chPrimarySymptom").textContent = s[0] || "fever";
+    document.getElementById("chOtherSymptoms").textContent = s.slice(1).join(", ") || "sore throat";
+  }
+
+  function update(){
+    if(updating) return;
+    updating = true;
+    try { updateCard(); } finally { updating = false; }
+  }
+
+  function schedule(){
+    if(scheduled || updating) return;
+    scheduled = true;
+    requestAnimationFrame(function(){ scheduled = false; update(); });
+  }
+
+  new MutationObserver(schedule).observe(document.body, {childList:true, subtree:true, characterData:true});
+  window.cityHealthRefreshPatientCard = update;
+  schedule();
+  setTimeout(update,300);
+  setTimeout(update,1200);
+})();
+</script>
+
+
+
+
+</body>
+</html>
