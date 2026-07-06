@@ -207,7 +207,7 @@ app.use(express.static(path.join(__dirname)));
 
 /* ── Frontend config (App ID only — safe to expose) ─────── */
 app.get('/api/config', (_req, res) => {
-  res.json({ appId: AGORA_APP_ID || '' });
+  res.json({ appId: AGORA_APP_ID || '', anamAvatarRtcUid: String(process.env.ANAM_AVATAR_RTC_UID || 987654321) });
 });
 
 /* ── Health check ────────────────────────────────────────── */
@@ -299,8 +299,18 @@ app.post('/api/agent/start', async (req, res) => {
   /* Generate a dedicated token for the agent (uid 0 = any slot).
      Returns null when App Certificate is disabled — Agora accepts null. */
   let agentToken;
+  const remoteRtcUid = String(uid);
+  if (!remoteRtcUid || remoteRtcUid === 'undefined' || remoteRtcUid === 'null') {
+    return res.status(400).json({ error: 'uid must be a valid RTC UID' });
+  }
+
+  const avatarRtcUid = String(process.env.ANAM_AVATAR_RTC_UID || 987654321);
+  let avatarRtcToken = process.env.ANAM_AVATAR_AGORA_TOKEN || '';
   try {
     agentToken = buildRtcToken(channelName, 0, 3600);
+    if (!avatarRtcToken) {
+      avatarRtcToken = buildRtcToken(channelName, avatarRtcUid, 3600);
+    }
   } catch (err) {
     return res.status(500).json({ error: `Token build failed: ${err.message}` });
   }
@@ -313,10 +323,23 @@ app.post('/api/agent/start', async (req, res) => {
       channel:         channelName,
       token:           agentToken || '',  // empty string = no token (cert disabled)
       agent_rtc_uid:   '0',              // auto-assign UID for agent
-      remote_rtc_uids: [String(uid)],    // only subscribe to this user
+      remote_rtc_uids: [remoteRtcUid],    // Agora Convo AI API expects remote_rtc_uids as strings
       idle_timeout:    30,
 
-      
+      /* AI Avatar — Anam publishes avatar video into the same RTC channel */
+      avatar: {
+        vendor: 'anam',
+        enable: true,
+        params: {
+          api_key: process.env.ANAM_API_KEY || '',
+          avatar_id: process.env.ANAM_AVATAR_ID || '960f614f-ea88-47c3-9883-f02094f70874',
+          agora_uid: avatarRtcUid,
+          agora_token: avatarRtcToken || '',
+          sample_rate: 24000,
+          quality: 'high',
+          video_encoding: 'H264',
+        },
+      },
 
       /* LLM — GPT-4o with _publish_message tool for UI control */
       llm: {
@@ -344,21 +367,18 @@ app.post('/api/agent/start', async (req, res) => {
         },
       },
 
-      /* TTS — ElevenLabs */
+      /* TTS — Murf */
       tts: {
-        vendor: 'cartesia',
+        vendor: 'murf',
         params: {
-          api_key: process.env.CARTESIA_API_KEY,
-          model_id: 'sonic-3',
-          voice: {
-            mode: 'id',
-            id: '638efaaa-4d0c-442e-b701-3fae16aad012'
-          },
-          output_format: {
-            container: 'raw',
-            sample_rate: 16000
-          },
-          language: 'en'
+          api_key: process.env.MURF_API_KEY,
+          base_url: 'wss://global.api.murf.ai/v1/speech/stream-input',
+          voiceId: process.env.MURF_VOICE_ID || 'Anisha',
+          locale: 'en-IN',
+          rate: 0,
+          pitch: 0,
+          model: 'FALCON',
+          sample_rate: 24000
         },
       },
 

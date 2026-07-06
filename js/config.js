@@ -25,6 +25,9 @@ const CITYHEALTH_CONFIG = {
   /* ── Channel naming ──────────────────────────────────────── */
   CHANNEL_PREFIX: 'cityhealth-',
 
+  /* Anam avatar RTC UID. Loaded from /api/config and must match the UID passed in the Convo AI avatar request. */
+  ANAM_AVATAR_RTC_UID: '987654321',
+
   /* ── Mode ────────────────────────────────────────────────── */
   LIVE_AGENT: true,   // set false to use simulated demo auto-play
 
@@ -286,6 +289,10 @@ CITYHEALTH_CONFIG._appIdReady = (async function loadAppId() {
       if (data.appId) {
         CITYHEALTH_CONFIG.AGORA_APP_ID = data.appId;
         console.log('[CityHealth] App ID loaded from server ✓');
+      }
+      if (data.anamAvatarRtcUid) {
+        CITYHEALTH_CONFIG.ANAM_AVATAR_RTC_UID = String(data.anamAvatarRtcUid);
+        console.log('[CityHealth] Anam avatar RTC UID loaded from server ✓');
       }
     }
   } catch (e) {

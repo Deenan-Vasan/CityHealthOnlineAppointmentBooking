@@ -20,6 +20,50 @@
 
 'use strict';
 
+function chEnsureTranscriptHistory() {
+  window.CityHealthTranscriptHistory = window.CityHealthTranscriptHistory || [];
+  return window.CityHealthTranscriptHistory;
+}
+
+function chLogTranscript(role, step, text) {
+  const cleanText = String(text || '').replace(/^"|"$/g, '').trim();
+  if (!cleanText) return;
+  if (/^(Agent is speaking|Listening|Processing|Connecting to voice agent|Say your mobile number|Describe your symptoms)/i.test(cleanText)) return;
+
+  const normalizeTranscript = (value) => String(value || '')
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const history = chEnsureTranscriptHistory();
+  const cleanNorm = normalizeTranscript(cleanText);
+  const last = history[history.length - 1];
+
+  // The Agora transcript callback can deliver the same finalized agent text more than once.
+  // It can also deliver a shorter interim version followed by the complete sentence.
+  // Keep one stable transcript item instead of adding duplicates.
+  if (last && last.role === role) {
+    const lastNorm = normalizeTranscript(last.text);
+    if (lastNorm === cleanNorm) return;
+    if (cleanNorm.startsWith(lastNorm) || cleanNorm.includes(lastNorm)) {
+      last.text = cleanText;
+      last.step = step;
+      window.dispatchEvent(new CustomEvent('cityhealth-transcript-history-updated'));
+      return;
+    }
+    if (lastNorm.startsWith(cleanNorm) || lastNorm.includes(cleanNorm)) return;
+  }
+
+  const duplicateIndex = history.findIndex((item) => item.role === role && normalizeTranscript(item.text) === cleanNorm);
+  if (duplicateIndex >= 0) return;
+
+  history.push({ role, step, text: cleanText, time: new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) });
+  window.dispatchEvent(new CustomEvent('cityhealth-transcript-history-updated'));
+}
+
+
 /* ============================================================
    Step labels + demo scripts
    ============================================================ */
@@ -214,15 +258,17 @@ function setAgentText(step, text) {
     el.textContent = `"${text}"`;
     el.dataset.hasTranscript = '1'; // stop state-fallback from overwriting
   }
+  chLogTranscript('ai', step, text);
 }
 
-function setUserText(step, text) {
+function setUserText(step, text, options = {}) {
   const el = document.getElementById(`s${step}UserText`);
   if (el) {
     el.textContent = text ? `"${text}"` : 'Listening for your voice…';
     el.classList.toggle('has-content', !!text);
     if (text) el.dataset.hasTranscript = '1';
   }
+  if (text && options.log !== false) chLogTranscript('user', step, text);
 }
 
 /* ============================================================
@@ -289,7 +335,7 @@ function highlightSlot(time) {
   const dateLabel = (selectedCalDay === 0 ? 'Today' : selectedCalDay === 1 ? 'Tomorrow'
     : `${d.getDate()} ${months[d.getMonth()]}`);
   confirmedDateTime.time = time;
-  confirmedDateTime.date = dateLabel + ', ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  confirmedDateTime.date = dateLabel + ' ' + d.getFullYear();
   const selEl2 = document.getElementById('s4SelectedText');
   if (selEl2) selEl2.textContent = `${offsetToDateLabel(selectedCalDay ?? 1)} · ${time} selected`;
 }
@@ -298,14 +344,17 @@ function highlightSlot(time) {
 function populateConfirmCard() {
   const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.textContent = val; };
 
-  // Doctor details — use what the doc-list rendered, fallback to confirmedDoctor
+  // Keep confirmation card synced with the latest spoken appointment details.
+  captureAppointmentFromText(lastAgentTranscript || (document.getElementById('s5AgentBubble') || {}).textContent || '');
+
+  // Doctor details — use the latest confirmed doctor, fallback to recommended doctor.
   const recName = document.querySelector('#s3DocList .doc-list-item.is-recommended .doc-list-name');
   const docName = confirmedDoctor.name || (recName && recName.textContent) || 'Dr. Anil Kumar';
-  const docSpec = confirmedDoctor.spec || 'General Physician';
+  const docSpec = confirmedDoctor.spec || specialtyFromDoctorName(docName) || currentDoctorListSpecialty || 'General Physician';
 
   set('cDocName', docName);
   set('cDocSpec', docSpec);
-  set('cDate',    confirmedDateTime.date || 'Tomorrow');
+  set('cDate',    confirmedDateTime.date || 'Today');
   set('cTime',    confirmedDateTime.time || '—');
 
   // Patient details from the verified profile card
@@ -472,7 +521,7 @@ async function startBookingAgent() {
   /* ── User transcript → user row on current screen ── */
   bookingAgent.on('user-transcript', ({ text, final }) => {
     if (!flowRunning) return;
-    setUserText(currentStep, text);
+    setUserText(currentStep, text, { log: !!final });
     if (!final) setScreenState(currentStep, 'thinking');
     if (final) {
       if (currentStep === 1) updatePatientDraftFromTranscript(text);
@@ -1167,6 +1216,7 @@ function extractDoctorNameFromText(text) {
 
 function handleAgentTranscript(agentText) {
   if (!flowRunning) return;
+  captureAppointmentFromText(agentText);
   const lower = agentText.toLowerCase();
   const spokenSpecialty = normalizeSpecialtyFromText(agentText);
   if (spokenSpecialty && currentStep === 3) {
@@ -1331,6 +1381,72 @@ function offsetToDateLabel(offset) {
 let confirmedDoctor   = { name:'', spec:'', fee:'' };
 let confirmedDateTime = { date:'', time:'' };
 
+function normalizeAppointmentTime(text) {
+  const raw = String(text || '').toLowerCase();
+
+  // Numeric times: "9:30 AM", "9 AM"
+  const direct = raw.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i);
+  if (direct) {
+    const hh = String(parseInt(direct[1], 10));
+    const mm = direct[2] || '00';
+    return `${hh}:${mm.padStart(2, '0')} ${direct[3].toUpperCase()}`;
+  }
+
+  const wordMap = {
+    one:1, two:2, three:3, four:4, five:5, six:6,
+    seven:7, eight:8, nine:9, ten:10, eleven:11, twelve:12
+  };
+  const minuteMap = {
+    zero:0, oh:0, o:0, fifteen:15, quarter:15, thirty:30, half:30, fortyfive:45, 'forty-five':45,
+    ten:10, twenty:20, 'twenty-five':25, twentyfive:25, 'twenty five':25,
+    forty:40, fifty:50
+  };
+
+  // Word times: "nine thirty AM", "nine-thirty in the morning", "nine o'clock AM".
+  // This fixes the confirmation card showing 9:00 AM when the transcript says 9:30 AM.
+  const word = raw.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:[-\s]+(fifteen|quarter|thirty|half|forty[-\s]?five|twenty[-\s]?five|twenty|ten|forty|fifty))?\s*(?:o'?clock)?(?:\s*(am|pm|a\.m\.|p\.m\.))?\b/);
+  if (!word) return '';
+
+  let hour = wordMap[word[1]];
+  let minuteWord = (word[2] || '').replace(/\s+/g, '-');
+  let minutes = 0;
+  if (minuteWord) {
+    const compact = minuteWord.replace(/-/g, '');
+    minutes = minuteMap[minuteWord] ?? minuteMap[compact] ?? 0;
+  }
+
+  let period = (word[3] || '').replace(/\./g, '').toUpperCase();
+  if (!period) {
+    if (/\b(morning|am|a\.m\.)\b/.test(raw)) period = 'AM';
+    else if (/\b(afternoon|evening|night|pm|p\.m\.)\b/.test(raw)) period = 'PM';
+    else period = hour >= 8 && hour <= 11 ? 'AM' : 'PM';
+  }
+  return `${hour}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+function captureAppointmentFromText(text) {
+  const t = String(text || '');
+  const doctor = extractDoctorNameFromText(t);
+  if (doctor) {
+    confirmedDoctor.name = doctor;
+    confirmedDoctor.spec = specialtyFromDoctorName(doctor) || confirmedDoctor.spec || currentDoctorListSpecialty || normalizeSpecialtyFromText(t);
+  }
+  const spec = normalizeSpecialtyFromText(t);
+  if (spec) confirmedDoctor.spec = spec;
+  const time = normalizeAppointmentTime(t);
+  if (time) confirmedDateTime.time = time;
+  const lower = t.toLowerCase();
+  if (lower.includes('today')) {
+    confirmedDateTime.date = offsetToDateLabel(0) + ' ' + new Date().getFullYear();
+  } else if (lower.includes('tomorrow')) {
+    confirmedDateTime.date = offsetToDateLabel(1) + ' ' + new Date().getFullYear();
+  } else {
+    const dayMatch = lower.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+    if (dayMatch) confirmedDateTime.date = offsetToDateLabel(dayNameToOffset(dayMatch[1])) + ' ' + new Date().getFullYear();
+  }
+}
+
+
 /* ── Map symptoms to specialty ───────────────────────────── */
 function detectSpecialty(text) {
   const normalized = normalizeSpecialtyFromText(arguments[0]);
@@ -1478,9 +1594,11 @@ function resetBookingScreens() {
   currentDoctorListSpecialty = '';
   currentRecommendedDoctor = null;
 
+  window.CityHealthTranscriptHistory = [];
+  window.dispatchEvent(new CustomEvent('cityhealth-transcript-history-updated'));
   // Clear transcript flags and user texts
   [1,2,3,4,5].forEach(s => {
-    setUserText(s, null);
+    setUserText(s, null, { log: false });
     const ab = document.getElementById(`s${s}AgentBubble`);
     const ub = document.getElementById(`s${s}UserText`);
     if (ab) { delete ab.dataset.hasTranscript; }

@@ -31,7 +31,10 @@ class CityHealthAgora {
     this._cfg         = config;
     this._client      = null;
     this._localTrack  = null;
-    this._remoteTrack = null;
+    this._remoteTrack = null;      // remote audio track
+    this._avatarVideoTrack = null; // Anam avatar remote video track
+    this._avatarUid = String((config && config.ANAM_AVATAR_RTC_UID) || 987654321);
+    this._avatarVideoContainer = null;
     this._agentId     = null;      // Agora Conversational AI agent instance ID
     this._channelName = null;
     this._uid         = null;
@@ -85,6 +88,11 @@ class CityHealthAgora {
       return;
     }
 
+    // Enable Agora Web SDK log upload for the user/client side before the RTC
+    // client is created. This helps Agora support correlate browser-side logs
+    // for user audio/video/avatar sessions. Guarded so it is called once only.
+    CityHealthAgora.enableLogUpload();
+
     this._setState('connecting');
 
     try {
@@ -120,7 +128,7 @@ class CityHealthAgora {
       );
 
       // ── 4. Create Agora RTC client ──────────────────────────
-      this._client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      this._client = AgoraRTC.createClient({ mode: 'rtc', codec: 'h264' });
       this._bindClientEvents();
 
       // ── 5. Join channel ─────────────────────────────────────
@@ -235,6 +243,26 @@ class CityHealthAgora {
     CityHealthAgora._resumeCtxStatic();
   }
 
+  /**
+   * Enable Agora Web SDK log upload for the local browser user.
+   * Safe to call multiple times; the SDK API is invoked once per page load.
+   */
+  static enableLogUpload() {
+    if (CityHealthAgora._logUploadEnabled) return true;
+    try {
+      if (typeof AgoraRTC !== 'undefined' && typeof AgoraRTC.enableLogUpload === 'function') {
+        AgoraRTC.enableLogUpload();
+        CityHealthAgora._logUploadEnabled = true;
+        console.log('[CityHealthAgora] AgoraRTC.enableLogUpload() enabled for user client logs ✓');
+        return true;
+      }
+      console.warn('[CityHealthAgora] AgoraRTC.enableLogUpload() is not available in this SDK build.');
+    } catch (err) {
+      console.warn('[CityHealthAgora] Failed to enable Agora log upload:', err && err.message ? err.message : err);
+    }
+    return false;
+  }
+
   static _resumeCtxStatic() {
     try {
       // Try Agora's internal context first
@@ -295,6 +323,40 @@ class CityHealthAgora {
     } catch {}
   }
 
+
+  _getAvatarContainer() {
+    const candidates = Array.from(document.querySelectorAll(
+      '.bf-screen.active .ch-avatar-video-container, .vf-page.active .ch-avatar-video-container, .booking-overlay.is-open .vf-page:not([style*="display: none"]) .ch-avatar-video-container, .ch-avatar-video-container'
+    ));
+    return candidates.find(el => {
+      const r = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+    }) || candidates[0] || null;
+  }
+
+  replayAvatarVideo() {
+    if (!this._avatarVideoTrack) return false;
+    const container = this._getAvatarContainer();
+    if (!container) return false;
+    try {
+      container.classList.add('has-avatar-video');
+      // Avoid repeatedly stopping/playing the RTC video track on every DOM mutation.
+      // The UI now keeps one persistent avatar container and moves it between steps,
+      // so replay is only needed when the target container actually changes.
+      if (this._avatarVideoContainer !== container || !container.querySelector('video')) {
+        try { this._avatarVideoTrack.stop(); } catch {}
+        this._avatarVideoTrack.play(container);
+        this._avatarVideoContainer = container;
+        console.log('[CityHealthAgora] Avatar video attached to persistent container ✓');
+      }
+      return true;
+    } catch (err) {
+      console.warn('[CityHealthAgora] Failed to re-attach avatar video:', err && err.message ? err.message : err);
+      return false;
+    }
+  }
+
   /* ============================================================
      RTC client event bindings
      ============================================================ */
@@ -307,77 +369,124 @@ class CityHealthAgora {
       this._showEnableAudioBtn();
     };
 
-    // Remote user (agent) published audio
+    // Remote users publish audio/video.
+    // The Convo AI agent publishes audio, while Anam publishes the avatar video as a
+    // separate RTC user. Subscribe to both and render the avatar in the center panel.
     c.on('user-published', async (user, mediaType) => {
       console.log('[CityHealthAgora] user-published uid:', user.uid, 'mediaType:', mediaType);
-      if (mediaType !== 'audio') return;
-      try {
-        await c.subscribe(user, 'audio');
-        this._agentUid = user.uid;
+      const remoteUid = String(user.uid);
+      const isAvatar = remoteUid === this._avatarUid;
 
-        // Retry up to 3 times if audioTrack isn't ready yet
-        for (let i = 0; i < 3; i++) {
-          this._remoteTrack = user.audioTrack;
-          if (this._remoteTrack) break;
-          await new Promise(r => setTimeout(r, 400));
-        }
-        if (!this._remoteTrack) {
-          console.warn('[CityHealthAgora] audioTrack unavailable — audio may not play');
-          this._startVolumeMonitor();
+      try {
+        await c.subscribe(user, mediaType);
+
+        if (mediaType === 'video') {
+          const videoTrack = user.videoTrack;
+          if (!videoTrack) {
+            console.warn('[CityHealthAgora] videoTrack unavailable for uid:', user.uid);
+            return;
+          }
+
+          // Prefer the configured Anam UID. If the UID differs, still render the first
+          // remote video so demos do not remain stuck on the placeholder.
+          if (isAvatar || !this._avatarVideoTrack) {
+            this._avatarVideoTrack = videoTrack;
+            const played = this.replayAvatarVideo();
+            if (played) {
+              console.log('[CityHealthAgora] Avatar video playing in active AI avatar container ✓ uid:', user.uid);
+            } else {
+              console.warn('[CityHealthAgora] AI avatar container not found; cannot render avatar video');
+            }
+          }
           return;
         }
 
-        console.log('[CityHealthAgora] Subscribed to agent audio track ✓');
+        if (mediaType === 'audio') {
+          this._agentUid = user.uid;
 
-        // ── Approach 1: Direct MediaStream → <audio> element ──────────
-        // Most reliable — bypasses AudioContext autoplay policy entirely.
-        let audioEl = document.getElementById('_ch_agent_audio_');
-        if (!audioEl) {
-          audioEl              = document.createElement('audio');
-          audioEl.id           = '_ch_agent_audio_';
-          audioEl.autoplay     = true;
-          audioEl.playsInline  = true;
-          audioEl.controls     = false;
-          audioEl.style.cssText = 'position:fixed;bottom:-1px;left:-1px;width:1px;height:1px;opacity:.01;';
-          document.body.appendChild(audioEl);
-        }
-        try {
-          const mediaTrack = this._remoteTrack.getMediaStreamTrack();
-          if (mediaTrack) {
-            audioEl.srcObject = new MediaStream([mediaTrack]);
-            await audioEl.play();
-            console.log('[CityHealthAgora] Audio playing via <audio>.srcObject ✓');
+          // Retry up to 3 times if audioTrack isn't ready yet.
+          for (let i = 0; i < 3; i++) {
+            this._remoteTrack = user.audioTrack;
+            if (this._remoteTrack) break;
+            await new Promise(r => setTimeout(r, 400));
           }
-        } catch (e) {
-          console.warn('[CityHealthAgora] srcObject play failed, falling back to Agora play():', e.message);
+          if (!this._remoteTrack) {
+            console.warn('[CityHealthAgora] audioTrack unavailable — audio may not play');
+            this._startVolumeMonitor();
+            return;
+          }
+
+          console.log('[CityHealthAgora] Subscribed to remote audio track ✓ uid:', user.uid);
+
+          // Approach 1: Direct MediaStream -> <audio> element.
+          let audioEl = document.getElementById('_ch_agent_audio_');
+          if (!audioEl) {
+            audioEl              = document.createElement('audio');
+            audioEl.id           = '_ch_agent_audio_';
+            audioEl.autoplay     = true;
+            audioEl.playsInline  = true;
+            audioEl.controls     = false;
+            audioEl.style.cssText = 'position:fixed;bottom:-1px;left:-1px;width:1px;height:1px;opacity:.01;';
+            document.body.appendChild(audioEl);
+          }
+          try {
+            const mediaTrack = this._remoteTrack.getMediaStreamTrack();
+            if (mediaTrack) {
+              audioEl.srcObject = new MediaStream([mediaTrack]);
+              await audioEl.play();
+              console.log('[CityHealthAgora] Audio playing via <audio>.srcObject ✓');
+            }
+          } catch (e) {
+            console.warn('[CityHealthAgora] srcObject play failed, falling back to Agora play():', e.message);
+          }
+
+          // Approach 2: Agora built-in play() as fallback.
+          await this._resumeAudioCtx();
+          this._remoteTrack.setVolume(400);
+          this._remoteTrack.play();
+          console.log('[CityHealthAgora] Remote audio play() called ✓ vol=400 uid:', user.uid);
+
+          this._startVolumeMonitor();
         }
-
-        // ── Approach 2: Agora's built-in play() as fallback ───────────
-        await this._resumeAudioCtx();
-        this._remoteTrack.setVolume(400);   // 0–1000, boost to ensure audible
-        this._remoteTrack.play();
-        console.log('[CityHealthAgora] Agent audio play() called ✓ vol=400');
-
-        this._startVolumeMonitor();
       } catch (err) {
-        console.error('[CityHealthAgora] Failed to subscribe to agent audio:', err);
+        console.error('[CityHealthAgora] Failed to subscribe to remote', mediaType, 'track:', err);
       }
     });
 
-    // Agent unpublished audio (TTS chunk ended)
-    c.on('user-unpublished', (user) => {
-      if (user.uid === this._agentUid) {
+    // Remote users unpublished audio/video.
+    c.on('user-unpublished', (user, mediaType) => {
+      if (mediaType === 'audio' && user.uid === this._agentUid) {
         this._stopVolumeMonitor();
         this._remoteTrack = null;
-        // Keep agentUid — agent will re-publish for the next TTS chunk
-        console.log('[CityHealthAgora] Agent unpublished audio (TTS chunk end).');
+        // Keep agentUid — agent may re-publish for the next TTS chunk.
+        console.log('[CityHealthAgora] Remote audio unpublished (TTS chunk end).');
+      }
+      if (mediaType === 'video' && this._avatarVideoTrack) {
+        const remoteUid = String(user.uid);
+        if (remoteUid === this._avatarUid || user.videoTrack === this._avatarVideoTrack) {
+          try { this._avatarVideoTrack.stop(); } catch {}
+          this._avatarVideoTrack = null;
+          this._avatarVideoContainer = null;
+          const container = this._getAvatarContainer();
+          if (container) container.classList.remove('has-avatar-video');
+          console.log('[CityHealthAgora] Avatar video unpublished.');
+        }
       }
     });
 
     c.on('user-left', (user) => {
+      const remoteUid = String(user.uid);
       if (user.uid === this._agentUid) {
         this._stopVolumeMonitor();
         console.log('[CityHealthAgora] Agent left channel.');
+      }
+      if (remoteUid === this._avatarUid && this._avatarVideoTrack) {
+        try { this._avatarVideoTrack.stop(); } catch {}
+        this._avatarVideoTrack = null;
+        this._avatarVideoContainer = null;
+        const container = this._getAvatarContainer();
+        if (container) container.classList.remove('has-avatar-video');
+        console.log('[CityHealthAgora] Avatar left channel.');
       }
     });
 
@@ -655,6 +764,13 @@ class CityHealthAgora {
       this._remoteTrack.stop();
       this._remoteTrack = null;
     }
+    if (this._avatarVideoTrack) {
+      try { this._avatarVideoTrack.stop(); } catch {}
+      this._avatarVideoTrack = null;
+      this._avatarVideoContainer = null;
+    }
+    const avatarContainer = this._getAvatarContainer();
+    if (avatarContainer) avatarContainer.classList.remove('has-avatar-video');
     if (this._client) {
       try { await this._client.leave(); } catch {}
       this._client = null;

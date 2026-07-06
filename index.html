@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="css/booking.css" />
 
   <!-- Agora RTC Web SDK v4 -->
-  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.24.3.js"></script>
 </head>
 <body>
 
@@ -662,6 +662,351 @@
 
 
 
+
+
+
+<!-- CityHealth call screen split layout: conversation + dynamic context widget -->
+<style id="cityHealthSplitConversationUiStyles">
+  .booking-overlay.is-open .bf-main{
+    display:grid !important;
+    grid-template-columns: minmax(240px,285px) minmax(560px,1fr) minmax(390px,460px) !important;
+    gap:18px !important;
+    align-items:start !important;
+    padding:24px 28px !important;
+    overflow:hidden !important;
+    box-sizing:border-box !important;
+    background:#f3f7fb !important;
+  }
+  .booking-overlay.is-open .bf-screen{min-height:0 !important;}
+  .booking-overlay.is-open .bf-screen.active{display:block !important;grid-column:2 !important;height:100% !important;min-height:0 !important;}
+  .booking-overlay.is-open .vf-context-card.patient-side-card{
+    position:relative !important;grid-column:1 !important;grid-row:1 !important;left:auto !important;top:auto !important;
+    width:100% !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100vh - 170px) !important;margin:0 !important;z-index:1 !important;
+    align-self:start !important;overflow:hidden auto !important;
+    border:1px solid #e5edf7 !important;border-radius:22px !important;box-shadow:0 18px 45px rgba(15,45,90,.08) !important;background:#fff !important;
+  }
+  .booking-overlay.is-open .vf-context-card.patient-side-card .history-card{
+    height:auto !important;min-height:0 !important;background:#fff !important;border:0 !important;border-radius:22px !important;
+  }
+  .booking-overlay.is-open .vf-context-card.patient-side-card .history-header{padding:18px 18px 16px !important;}
+  .booking-overlay.is-open .vf-context-card.patient-side-card .history-grid{display:block !important;}
+  .booking-overlay.is-open .vf-context-card.patient-side-card .history-item{padding:16px 18px !important;border-top:1px solid #edf2f7 !important;}
+  .booking-overlay.is-open .vf-context-card.patient-side-card .past-diagnosis{margin:0 !important;padding:16px 18px 20px !important;border-top:1px solid #edf2f7 !important;}
+  .booking-overlay.is-open .bf-main .vf-page{
+    max-width:none !important;width:100% !important;height:100% !important;margin:0 !important;padding:0 !important;gap:0 !important;
+    display:block !important;position:relative !important;transform:none !important;
+  }
+  .booking-overlay.is-open .vf-orb-wrap,
+  .booking-overlay.is-open .vf-agent-name,
+  .booking-overlay.is-open .vf-state-pill,
+  .booking-overlay.is-open .vf-wave,
+  .booking-overlay.is-open .vf-agent-bubble,
+  .booking-overlay.is-open .vf-user-row,
+  .booking-overlay.is-open .vf-mic-wrap{display:none !important;}
+  .booking-overlay.is-open .bf-screen .vf-context-card:not(.patient-side-card){position:static !important;width:100% !important;max-width:none !important;max-height:none !important;overflow:visible !important;box-shadow:none !important;animation:none !important;}
+  .ch-call-stage{
+    height:100%;min-height:560px;border-radius:24px;background:#081323;overflow:hidden;position:relative;
+    box-shadow:0 20px 55px rgba(15,45,90,.16);border:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column;
+  }
+  .ch-avatar-area{position:relative;flex:1;min-height:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 30%,#25415f 0,#111d2f 42%,#07101d 100%);}
+
+  .ch-avatar-video-container{position:absolute;inset:0;z-index:1;overflow:hidden;background:#050b14;}
+  .ch-avatar-video-container video{width:100%;height:100%;object-fit:contain;background:#050b14;}
+  .ch-avatar-video-container:not(.has-avatar-video){pointer-events:none;}
+  .ch-avatar-video-container.has-avatar-video ~ .ch-avatar-loader{opacity:0;visibility:hidden;pointer-events:none;}
+  .ch-avatar-area .ch-live-badge,.ch-avatar-area .ch-user-preview{z-index:8;}
+  .ch-avatar-loader{position:absolute;inset:0;z-index:3;display:grid;place-items:center;text-align:center;padding:44px 28px;background:radial-gradient(circle at 50% 38%,rgba(47,122,248,.22) 0,rgba(15,23,42,.88) 42%,rgba(7,16,29,.96) 100%);transition:opacity .25s ease,visibility .25s ease;}
+  .ch-avatar-loader-card{display:flex;flex-direction:column;align-items:center;gap:14px;color:#eaf3ff;max-width:420px;}
+  .ch-avatar-loader-icon{width:96px;height:96px;border-radius:999px;display:grid;place-items:center;background:linear-gradient(180deg,#eaf4ff,#9fc4ff);color:#12396c;box-shadow:0 20px 55px rgba(47,122,248,.28), inset 0 -18px 32px rgba(15,45,90,.18);animation:chPulse 1.7s ease-in-out infinite;}
+  .ch-avatar-loader-icon i{font-size:48px;}
+  .ch-avatar-loader-title{font-size:24px;font-weight:1000;letter-spacing:-.02em;}
+  .ch-avatar-loader-subtitle{font-size:16px;font-weight:800;color:rgba(234,243,255,.74);line-height:1.45;}
+  .ch-avatar-loader-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.24);border-top-color:#7db1ff;animation:chSpin .9s linear infinite;margin-top:2px;}
+  @keyframes chSpin{to{transform:rotate(360deg)}}
+  @keyframes chPulse{0%,100%{transform:scale(1);box-shadow:0 20px 55px rgba(47,122,248,.28), inset 0 -18px 32px rgba(15,45,90,.18)}50%{transform:scale(1.04);box-shadow:0 24px 70px rgba(47,122,248,.42), inset 0 -18px 32px rgba(15,45,90,.18)}}
+  .ch-live-badge{position:absolute;left:22px;top:22px;background:rgba(2,8,23,.72);border:1px solid rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:12px 18px;font-weight:900;display:flex;align-items:center;gap:9px;box-shadow:0 10px 24px rgba(0,0,0,.16);}
+  .ch-live-dot{width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 5px rgba(34,197,94,.16);}
+  .ch-user-preview{position:absolute;right:26px;top:24px;width:168px;height:168px;aspect-ratio:1 / 1;border-radius:22px;border:3px solid #2f7af8;background:linear-gradient(135deg,#172338,#0f172a);box-shadow:0 18px 40px rgba(0,0,0,.28);display:grid;place-items:center;color:#d8e7ff;overflow:hidden;z-index:8;}
+  .ch-user-preview video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0f172a;transform:scaleX(-1);}
+  .ch-user-preview.has-video > i,.ch-user-preview.has-video > span{display:none;}
+  .ch-user-preview.is-camera-off video{display:none;}
+  .ch-user-preview .you{position:absolute;left:10px;bottom:10px;background:rgba(2,8,23,.75);color:#fff;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:900;z-index:2;}
+  .ch-user-preview i{font-size:18px;opacity:.88}.ch-user-preview span{font-weight:800;}
+  .ch-controls{position:absolute;left:50%;bottom:82px;transform:translateX(-50%);z-index:10;height:auto;background:transparent;display:flex;align-items:center;justify-content:center;gap:26px;padding:0;backdrop-filter:none;box-shadow:none;border:0;}
+  .ch-control-btn{border:0;border-radius:999px;width:58px;min-width:58px;height:58px;padding:0;display:inline-flex;align-items:center;justify-content:center;gap:0;font-size:18px;font-weight:900;color:#fff;background:rgba(10,18,32,.62);cursor:pointer;box-shadow:0 10px 24px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.16);}
+  .ch-control-btn .ch-control-label{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  .ch-control-btn i{font-size:24px}.ch-control-btn.end{background:#ef4444}.ch-control-btn.is-off{background:rgba(239,68,68,.28);color:#fecaca;}
+  .ch-status-strip{height:58px;background:#fff;display:flex;align-items:center;justify-content:center;gap:18px;color:#18345f;font-size:18px;font-weight:900;border-top:1px solid #e5edf7;}
+  .ch-mini-wave{display:flex;align-items:center;gap:4px}.ch-mini-wave span{display:block;width:4px;border-radius:999px;background:#2f7af8;animation:chWave 1s ease-in-out infinite}.ch-mini-wave span:nth-child(1){height:10px}.ch-mini-wave span:nth-child(2){height:18px;animation-delay:.1s}.ch-mini-wave span:nth-child(3){height:26px;animation-delay:.2s}.ch-mini-wave span:nth-child(4){height:15px;animation-delay:.3s}.ch-mini-wave span:nth-child(5){height:22px;animation-delay:.4s}@keyframes chWave{50%{transform:scaleY(.45);opacity:.55}}
+  .ch-right-panel{grid-column:3;grid-row:1;height:calc(100vh - 168px);min-height:560px;max-height:calc(100vh - 168px);background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible;display:flex;flex-direction:column;z-index:2;}
+  .ch-tabs{height:58px;display:grid;grid-template-columns:1fr 1fr;border:1px solid #e5edf7;border-bottom:0;border-radius:22px 22px 0 0;background:#fff;box-shadow:0 10px 26px rgba(15,45,90,.05);flex-shrink:0;overflow:hidden;}
+  .ch-tab{border:0;background:#fff;color:#667085;font-weight:900;font-size:17px;display:flex;align-items:center;justify-content:center;gap:9px;position:relative;}
+  .ch-tab.active{color:#0b63f6}.ch-tab.active:after{content:"";position:absolute;left:22px;right:22px;bottom:0;height:4px;border-radius:4px 4px 0 0;background:#0b63f6;}
+  .ch-conversation{flex:0 0 46%;min-height:230px;max-height:360px;border:1px solid #e5edf7;border-top:0;border-radius:0 0 22px 22px;background:#fff;box-shadow:0 18px 45px rgba(15,45,90,.08);overflow:hidden;display:flex;flex-direction:column;}
+  .ch-right-panel[data-step="4"] .ch-conversation,.ch-right-panel[data-step="5"] .ch-conversation{flex-basis:40%;max-height:320px;}
+  .ch-conv-head{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #edf2f7;color:#1f2a44;font-weight:900;}
+  .ch-conv-head .live{display:flex;align-items:center;gap:10px}.ch-conv-head .live:before{content:"";width:8px;height:8px;border-radius:50%;background:#22c55e}.ch-clear{border:0;background:transparent;color:#ef4444;font-weight:900;display:flex;align-items:center;gap:6px;cursor:pointer;}
+  .ch-transcript{flex:1;overflow-y:auto;padding:18px 18px 22px;scrollbar-width:thin;background:linear-gradient(180deg,#fff 0,#fbfdff 100%);}
+  .ch-msg{display:flex;gap:10px;margin:0 0 14px;align-items:flex-start}.ch-msg.user{justify-content:flex-end}.ch-avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:0 0 30px;background:#eaf2ff;color:#0b63f6;font-size:17px}.ch-msg.user .ch-avatar{background:#e9f9ef;color:#059669;order:2}.ch-bubble{max-width:78%;padding:12px 14px;border-radius:14px;background:#eef5ff;color:#092456;box-shadow:0 10px 24px rgba(15,45,90,.06);line-height:1.45;font-size:14px}.ch-msg.user .ch-bubble{background:#e8f8ee;color:#07552a}.ch-bubble-top{display:flex;align-items:center;justify-content:space-between;gap:16px;font-weight:900;margin-bottom:4px}.ch-time{font-size:12px;color:#667085;font-weight:700}.ch-msg.user .ch-time{color:#08783c}.ch-empty{height:100%;display:grid;place-items:center;text-align:center;color:#667085;font-weight:700;padding:30px;}
+  .ch-context{flex:1 1 auto;min-height:0;margin-top:16px;display:flex;flex-direction:column;background:#fff;border:1px solid #e5edf7;border-radius:22px;box-shadow:0 18px 45px rgba(15,45,90,.08);overflow:hidden;}
+  .ch-context-title{height:64px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #e5edf7;color:#102a5c;font-size:20px;font-weight:1000;background:#fff;}
+  .ch-context-title .left{display:flex;align-items:center;gap:10px}.ch-context-title i{color:#0b63f6;font-size:24px}.ch-context-badge{font-size:12px;border-radius:999px;padding:6px 10px;background:#e9f9ef;color:#05853b;font-weight:900;}
+  .ch-context-body{flex:1;min-height:0;overflow-y:auto;padding:22px 28px 24px;scrollbar-width:thin;}
+  .ch-right-panel[data-step="4"] .ch-context-body,.ch-right-panel[data-step="5"] .ch-context-body{padding:22px 28px 28px;}
+  .ch-symptom-fallback h4{margin:0 0 12px;color:#0f172a;font-size:16px}.ch-symptom-placeholder h4{display:flex;align-items:center;gap:8px;color:#102a5c}.ch-symptom-placeholder h4 i{color:#0b63f6}.ch-tag-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}.ch-tag{display:inline-flex;align-items:center;border-radius:999px;background:#dbeafe;color:#1d4ed8;padding:9px 14px;font-weight:900}.ch-note{display:flex;gap:10px;background:#f2f7ff;color:#475569;border-radius:14px;padding:14px;line-height:1.45;font-weight:600}.ch-note i{color:#0b63f6;font-size:19px;flex-shrink:0}.ch-view-history{margin-top:14px;width:100%;border:0;background:transparent;color:#0b63f6;font-weight:1000;padding:10px;}
+  .ch-right-panel .doc-list{gap:10px}.ch-right-panel .doc-list-item{padding:12px;border:1px solid #e5edf7;border-radius:14px}.ch-right-panel .vf-context-card{background:transparent !important;border:0 !important;padding:0 !important;}
+  .ch-right-panel .cal-header{margin-bottom:12px !important;}
+  .ch-right-panel .cal-days{display:flex !important;grid-template-columns:none !important;gap:8px !important;overflow-x:auto !important;padding-bottom:8px !important;scrollbar-width:thin;}
+  .ch-right-panel .cal-day{flex:0 0 68px !important;padding:10px 8px !important;border-radius:14px !important;}
+  .ch-right-panel .vf-slots-group{margin-top:10px !important;}
+  .ch-right-panel .vf-slots-label{font-size:12px !important;margin-bottom:8px !important;}
+  .ch-right-panel .vf-slots-row{gap:8px !important;display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+  .ch-right-panel .vf-slot{padding:9px 10px !important;min-height:38px !important;font-size:13px !important;}
+  .ch-right-panel .vf-selected-slot{margin-top:10px !important;padding:10px 12px !important;}
+  .ch-right-panel .confirm-success-icon,.ch-right-panel .confirm-title,.ch-right-panel .confirm-sub{display:none !important;}
+  .ch-right-panel .confirm-card{box-shadow:none !important;background:transparent !important;border:0 !important;padding:0 !important;margin:0 !important;display:grid !important;gap:12px !important;}
+  .ch-right-panel .confirm-row{border:1px solid #e5edf7 !important;background:#fbfdff !important;border-radius:14px !important;padding:14px 16px !important;margin:0 !important;display:flex !important;align-items:flex-start !important;justify-content:space-between !important;gap:18px !important;}
+  .ch-right-panel .confirm-label{min-width:112px;color:#667085 !important;font-size:12px !important;letter-spacing:.06em !important;text-transform:uppercase !important;font-weight:900 !important;display:flex !important;align-items:center !important;gap:8px !important;}
+  .ch-right-panel .confirm-label i{color:#94a3b8 !important;font-size:17px !important;}
+  .ch-right-panel .confirm-value{flex:1;text-align:right;color:#0f172a !important;font-size:15px !important;font-weight:900 !important;line-height:1.3 !important;overflow-wrap:anywhere;}
+  .ch-right-panel .confirm-value--blue{color:#0b63f6 !important;}
+  .ch-right-panel .confirmed-badge{white-space:nowrap;background:#dcfce7 !important;color:#15803d !important;border-radius:999px !important;padding:8px 12px !important;font-size:13px !important;font-weight:900 !important;}
+  .ch-right-panel .reminder-section{margin-top:16px !important;padding:16px !important;border:1px solid #e5edf7 !important;border-radius:16px !important;background:#f8fbff !important;}
+  .ch-right-panel .btn-full{margin-top:14px !important;}
+  @media (max-width:1300px){.booking-overlay.is-open .bf-main{grid-template-columns:240px minmax(500px,1fr) 380px !important;padding:18px !important}.ch-right-panel{height:calc(100vh - 156px);max-height:calc(100vh - 156px)}.booking-overlay.is-open .vf-context-card.patient-side-card{max-height:calc(100vh - 156px) !important}.ch-user-preview{width:142px;height:142px;top:20px;right:20px}.ch-control-btn{width:54px;min-width:54px}.ch-avatar-text{font-size:16px}}
+  @media (max-width:1050px){.booking-overlay.is-open .bf-main{display:block !important;overflow-y:auto !important}.booking-overlay.is-open .bf-screen.active{height:auto !important}.booking-overlay.is-open .vf-context-card.patient-side-card,.ch-right-panel{height:auto !important;max-height:none !important;margin:16px 0 !important}.ch-call-stage{height:620px}.ch-right-panel{min-height:720px}.ch-conversation{max-height:none}.ch-context-body{max-height:520px}}
+</style>
+<script id="cityHealthSplitConversationUiScript">
+(function(){
+  function qs(sel,root){return (root||document).querySelector(sel)}
+  function qsa(sel,root){return Array.from((root||document).querySelectorAll(sel))}
+  function clean(t){return (t||'').replace(/^"|"$/g,'').trim()}
+  function time(){try{return new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});}catch(e){return ''}}
+  function cameraPreviews(){
+    return qsa('.ch-user-preview');
+  }
+  function activeCameraPreview(){
+    return qs('.bf-screen.active .ch-user-preview') || qs('.ch-user-preview');
+  }
+  async function attachStreamToPreviews(stream){
+    var previews=cameraPreviews();
+    for(var i=0;i<previews.length;i++){
+      var preview=previews[i];
+      var video=qs('video.ch-local-preview-video', preview);
+      if(!video){
+        video=document.createElement('video');
+        video.className='ch-local-preview-video';
+        video.autoplay=true;
+        video.muted=true;
+        video.playsInline=true;
+        preview.insertBefore(video, preview.firstChild);
+      }
+      if(video.srcObject!==stream) video.srcObject=stream;
+      try{ await video.play(); }catch(e){}
+      preview.classList.add('has-video');
+      preview.classList.remove('is-camera-off');
+      preview.style.opacity='1';
+      var label=preview.querySelector('span');
+      if(label) label.textContent='';
+    }
+  }
+  async function startLocalCameraPreview(){
+    var preview=activeCameraPreview();
+    if(!preview) return false;
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        cameraPreviews().forEach(function(p){p.setAttribute('title','Camera preview requires a browser with media device support.');});
+        return false;
+      }
+      var stream=window.CityHealthLocalCameraStream;
+      if(!stream || !stream.getVideoTracks || !stream.getVideoTracks().length){
+        stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:360},facingMode:'user'},audio:false});
+        window.CityHealthLocalCameraStream=stream;
+      }
+      window.CityHealthCameraEnabled=true;
+      stream.getVideoTracks().forEach(function(t){t.enabled=true;});
+      await attachStreamToPreviews(stream);
+      qsa('.ch-camera').forEach(function(btn){btn.classList.remove('is-off'); var i=btn.querySelector('i'); if(i) i.className='ti ti-video';});
+      return true;
+    }catch(err){
+      console.warn('[CityHealth] Camera preview failed:', err);
+      cameraPreviews().forEach(function(preview){
+        preview.classList.remove('has-video');
+        preview.classList.add('is-camera-off');
+        var label=preview.querySelector('span');
+        if(label) label.textContent='Camera permission needed';
+      });
+      return false;
+    }
+  }
+  function setLocalCameraEnabled(enabled){
+    var stream=window.CityHealthLocalCameraStream;
+    if(stream) stream.getVideoTracks().forEach(function(t){t.enabled=enabled;});
+    window.CityHealthCameraEnabled=enabled;
+    cameraPreviews().forEach(function(preview){
+      preview.classList.toggle('is-camera-off', !enabled);
+      preview.style.opacity=enabled?'1':'.55';
+    });
+    qsa('.ch-camera').forEach(function(btn){
+      btn.classList.toggle('is-off', !enabled);
+      var i=btn.querySelector('i');
+      if(i) i.className=enabled?'ti ti-video':'ti ti-video-off';
+    });
+  }
+  function stopLocalCameraPreview(){
+    var stream=window.CityHealthLocalCameraStream;
+    if(stream) stream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});
+    window.CityHealthLocalCameraStream=null;
+    window.CityHealthCameraEnabled=false;
+    cameraPreviews().forEach(function(preview){
+      var videos=qsa('video.ch-local-preview-video', preview);
+      videos.forEach(function(video){video.srcObject=null; video.remove();});
+      preview.classList.remove('has-video');
+      preview.classList.add('is-camera-off');
+      preview.style.opacity='';
+      var label=preview.querySelector('span');
+      if(label) label.textContent='Camera preview';
+    });
+  }
+  function buildPersistentStage(){
+    var stage=qs('#chPersistentCallStage');
+    if(stage) return stage;
+    stage=document.createElement('div');
+    stage.id='chPersistentCallStage';
+    stage.className='ch-call-stage';
+    stage.innerHTML='<div class="ch-avatar-area"><div class="ch-avatar-video-container" data-role="ai-avatar-container" aria-label="HealthBook AI avatar video"></div><div class="ch-live-badge"><span class="ch-live-dot"></span>HealthBook AI • LIVE</div><div class="ch-avatar-loader" data-role="avatar-loader"><div class="ch-avatar-loader-card"><div class="ch-avatar-loader-icon"><i class="ti ti-calendar-check"></i></div><div class="ch-avatar-loader-title">Preparing HealthBook AI...</div><div class="ch-avatar-loader-subtitle">Setting up your online appointment assistant. Your booking flow will begin shortly.</div><div class="ch-avatar-loader-spinner" aria-hidden="true"></div></div></div><div class="ch-user-preview" data-role="local-video-container"><i class="ti ti-video"></i><span>Camera preview</span><b class="you">You</b></div></div><div class="ch-controls"><button class="ch-control-btn ch-mic" title="Microphone" aria-label="Microphone"><i class="ti ti-microphone"></i><span class="ch-control-label">Mic</span></button><button class="ch-control-btn ch-camera" title="Camera" aria-label="Camera"><i class="ti ti-video"></i><span class="ch-control-label">Camera</span></button><button class="ch-control-btn end ch-end" title="End call" aria-label="End call"><i class="ti ti-phone-off"></i><span class="ch-control-label">End Call</span></button></div><div class="ch-status-strip"><span class="ch-status-text">HealthBook AI is speaking...</span><span class="ch-mini-wave"><span></span><span></span><span></span><span></span><span></span></span></div>';
+    stage.querySelector('.ch-mic').addEventListener('click',function(){
+      this.classList.toggle('is-off'); this.querySelector('i').className=this.classList.contains('is-off')?'ti ti-microphone-off':'ti ti-microphone';
+      var btn=qs('.bf-screen.active .vf-mic-btn'); if(btn) btn.click();
+      try{ if(window.cityHealthAgent && typeof window.cityHealthAgent.setMicMuted==='function') window.cityHealthAgent.setMicMuted(this.classList.contains('is-off')); }catch(e){}
+    });
+    stage.querySelector('.ch-camera').addEventListener('click',async function(){
+      var turningOff=!this.classList.contains('is-off') && window.CityHealthCameraEnabled;
+      if(turningOff){
+        this.classList.add('is-off'); this.querySelector('i').className='ti ti-video-off';
+        setLocalCameraEnabled(false);
+        return;
+      }
+      var ok=await startLocalCameraPreview();
+      this.classList.toggle('is-off', !ok);
+      this.querySelector('i').className=ok?'ti ti-video':'ti ti-video-off';
+      if(ok) setLocalCameraEnabled(true);
+    });
+    stage.querySelector('.ch-end').addEventListener('click',function(){ stopLocalCameraPreview(); var b=qs('#bfClose'); if(b) b.click(); });
+    setTimeout(function(){ startLocalCameraPreview().then(function(ok){
+      var cam=stage.querySelector('.ch-camera');
+      if(cam){ cam.classList.toggle('is-off', !ok); cam.querySelector('i').className=ok?'ti ti-video':'ti ti-video-off'; }
+    }); }, 350);
+    return stage;
+  }
+  function ensureStage(page){
+    if(!page) return;
+    var stage=buildPersistentStage();
+    /* Keep one physical RTC video container for the full call. Do not create a new
+       container per step; moving the existing node preserves the Anam video element
+       and prevents the avatar from going black when Verify -> Symptoms re-renders. */
+    qsa('.ch-call-stage').forEach(function(other){
+      if(other!==stage) other.remove();
+    });
+    if(stage.parentNode!==page || stage!==page.firstChild){
+      page.insertBefore(stage,page.firstChild);
+    }
+  }
+  function ensureRightPanel(){
+    var main=qs('.bf-main'); if(!main) return null;
+    var panel=qs('#chSplitRightPanel'); if(panel) return panel;
+    panel=document.createElement('aside'); panel.id='chSplitRightPanel'; panel.className='ch-right-panel';
+    panel.innerHTML='<div class="ch-tabs"><button class="ch-tab active"><i class="ti ti-message-circle"></i>Conversation</button><button class="ch-tab"><i class="ti ti-notes"></i>Notes</button></div><section class="ch-conversation"><div class="ch-conv-head"><span class="live">Live Transcription</span><button class="ch-clear" type="button"><i class="ti ti-trash"></i>Clear</button></div><div class="ch-transcript" id="chTranscript"><div class="ch-empty">Conversation will appear here while the call is active.</div></div></section><section class="ch-context"><div class="ch-context-title"><span class="left"><i class="ti ti-heart-plus"></i><span id="chContextTitleText">Symptoms Summary</span></span><span class="ch-context-badge" id="chContextBadge">Updated</span></div><div class="ch-context-body" id="chContextBody"></div></section>';
+    main.appendChild(panel);
+    panel.querySelector('.ch-clear').addEventListener('click',function(){window.CityHealthTranscriptHistory=[]; lastTranscript=''; var t=qs('#chTranscript'); if(t) t.innerHTML='<div class="ch-empty">Transcript cleared for this view.</div>';});
+    return panel;
+  }
+  function activeStep(){var s=qs('.bf-screen.active'); return s?parseInt((s.id||'').replace('bfScreen',''),10)||1:1;}
+  function collectMessages(step){
+    var msgs=[];
+    for(var i=1;i<=step;i++){
+      var a=clean((qs('#s'+i+'AgentBubble')||{}).textContent); if(a && !/^Updating your records now/.test(a)) msgs.push({role:'ai',text:a});
+      var u=clean((qs('#s'+i+'UserText')||{}).textContent); if(u && !/Say your mobile number|Describe your symptoms|Listening for your|Listening for your response|Listening for your preference/i.test(u)) msgs.push({role:'user',text:u});
+    }
+    return msgs;
+  }
+  var lastTranscript='';
+  function historyMessages(){
+    var h=window.CityHealthTranscriptHistory || [];
+    return h.map(function(m){return {role:m.role,text:m.text,time:m.time||time()};}).filter(function(m){return m.text;});
+  }
+  function renderTranscript(){
+    var wrap=qs('#chTranscript'); if(!wrap) return;
+    var msgs=historyMessages();
+    if(!msgs.length) msgs=collectMessages(activeStep());
+    var key=msgs.map(function(m){return m.role+':'+m.text+':'+(m.time||'')}).join('|'); if(key===lastTranscript) return; lastTranscript=key;
+    if(!msgs.length){wrap.innerHTML='<div class="ch-empty">Conversation will appear here while the call is active.</div>'; return;}
+    wrap.innerHTML=msgs.map(function(m){return '<div class="ch-msg '+(m.role==='user'?'user':'ai')+'"><div class="ch-avatar"><i class="ti '+(m.role==='user'?'ti-user':'ti-heart-handshake')+'"></i></div><div class="ch-bubble"><div class="ch-bubble-top"><span>'+(m.role==='user'?'You':'HealthBook AI')+'</span><span class="ch-time">'+(m.time||time())+'</span></div><div>'+escapeHtml(m.text)+'</div></div></div>'}).join('');
+    wrap.scrollTop=wrap.scrollHeight;
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]});}
+  function titleFor(step){return step===1?'Verification Summary':step===2?'Symptoms Summary':step===3?'Recommended Doctors':step===4?'Appointment Availability':'Appointment Summary'}
+  function badgeFor(step){return step===1?'Ready':step===2?'Updated':step===3?'Recommended':step===4?'Available':step===5?'Ready':'Updated'}
+  function symptomList(){
+    var tags=qsa('#s2SymptomTags .vf-symptom-tag').map(x=>clean(x.textContent)).filter(Boolean);
+    if(!tags.length) tags=['Fever','Sore Throat','Cough','Headache'];
+    return tags;
+  }
+  function detectedSymptoms(){
+    return qsa('#s2SymptomTags .vf-symptom-tag').map(function(x){return clean(x.textContent);}).filter(Boolean);
+  }
+  function fallbackSymptoms(){
+    var detected=detectedSymptoms();
+    if(!detected.length){
+      return '<div class="ch-symptom-fallback ch-symptom-placeholder"><h4><i class="ti ti-stethoscope"></i> Listening for symptoms...</h4><div class="ch-note"><i class="ti ti-info-circle"></i><span>Please describe your symptoms. I will summarize the detected symptoms here as we talk.</span></div></div>';
+    }
+    return '<div class="ch-symptom-fallback"><h4>Symptoms identified for current call</h4><div class="ch-tag-row">'+detected.map(function(s){return '<span class="ch-tag">'+escapeHtml(s)+'</span>';}).join('')+'</div><div class="ch-note"><i class="ti ti-info-circle"></i><span>These symptoms are AI-identified based on the live conversation and will be used to recommend the right doctors.</span></div><button class="ch-view-history">View History <i class="ti ti-arrow-right"></i></button></div>';
+  }
+  function fallbackVerify(){return '<div class="ch-symptom-fallback"><h4>Patient verification</h4><div class="ch-note"><i class="ti ti-shield-check"></i><span>Once the identity is verified, the patient card stays visible on the left and the conversation continues here.</span></div></div>'}
+  var movedCard=null, movedPlaceholder=null;
+  function moveCard(card){
+    var body=qs('#chContextBody'); if(!body) return false;
+    if(movedCard && movedCard!==card && movedPlaceholder){movedPlaceholder.parentNode.insertBefore(movedCard,movedPlaceholder); movedPlaceholder.remove(); movedCard=null; movedPlaceholder=null;}
+    if(!card) return false;
+    if(card.parentNode!==body){
+      movedPlaceholder=document.createComment('cityhealth card original position');
+      card.parentNode.insertBefore(movedPlaceholder,card);
+      body.innerHTML=''; body.appendChild(card); movedCard=card;
+    }
+    card.style.display='';
+    return true;
+  }
+  function renderContext(){
+    var step=activeStep(), panel=qs('#chSplitRightPanel'), title=qs('#chContextTitleText'), badge=qs('#chContextBadge'), body=qs('#chContextBody'); if(!body) return;
+    if(panel) panel.setAttribute('data-step', String(step));
+    if(title) title.textContent=titleFor(step); if(badge) badge.textContent=badgeFor(step);
+    var card=null;
+    if(step===2) card=qs('#s2ContextCard');
+    if(step===3) card=qs('#s3DoctorCard');
+    if(step===4) card=qs('#s4CalendarCard');
+    if(step===5) card=qs('#s5ConfirmCard') && qs('#s5ConfirmCard').style.display!=='none' ? qs('#s5ConfirmCard') : qs('#s5DbCard');
+    if(card){
+      var shouldMove=true;
+      if(step===2){
+        var hasSymptoms=detectedSymptoms().length>0;
+        var isVisible=card.style.display!=='none';
+        shouldMove=hasSymptoms && isVisible;
+      }
+      if(shouldMove && moveCard(card)) return;
+    }
+    moveCard(null);
+    body.innerHTML= step===1 ? fallbackVerify() : fallbackSymptoms();
+  }
+  function updateStageStatus(){
+    var step=activeStep();
+    var label=clean((qs('#s'+step+'PillLabel')||{}).textContent)||'Speaking';
+    qsa('.bf-screen.active .ch-status-text').forEach(function(el){el.textContent='HealthBook AI is '+label.toLowerCase().replace('agent ','').replace('…','...');});
+  }
+  function sync(){var activePage=qs('.bf-screen.active .vf-page') || qs('.bf-screen.active') || qs('.vf-page'); ensureStage(activePage); ensureRightPanel(); renderTranscript(); renderContext(); updateStageStatus(); if(window.cityHealthAgent && typeof window.cityHealthAgent.replayAvatarVideo==='function'){window.cityHealthAgent.replayAvatarVideo();} if(window.CityHealthLocalCameraStream && window.CityHealthCameraEnabled){attachStreamToPreviews(window.CityHealthLocalCameraStream);} }
+  function init(){sync(); window.addEventListener('cityhealth-transcript-history-updated', function(){requestAnimationFrame(renderTranscript)}); new MutationObserver(function(){requestAnimationFrame(sync)}).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style']});}
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+})();
+</script>
 
 </body>
 </html>
