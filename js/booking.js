@@ -382,7 +382,7 @@ function populateConfirmCard() {
   // Doctor details — use the latest confirmed doctor, fallback to recommended doctor.
   const recName = document.querySelector('#s3DocList .doc-list-item.is-recommended .doc-list-name');
   const docName = confirmedDoctor.name || (recName && recName.textContent) || 'Dr. Anil Kumar';
-  const docSpec = confirmedDoctor.spec || specialtyFromDoctorName(docName) || currentDoctorListSpecialty || 'General Physician';
+  const docSpec = specialtyFromDoctorName(docName) || confirmedDoctor.spec || currentDoctorListSpecialty || 'General Physician';
 
   set('cDocName', docName);
   set('cDocSpec', docSpec);
@@ -1483,12 +1483,16 @@ function normalizeAppointmentTime(text) {
 function captureAppointmentFromText(text) {
   const t = String(text || '');
   const doctor = extractDoctorNameFromText(t);
+  const doctorSpec = doctor ? specialtyFromDoctorName(doctor) : '';
   if (doctor) {
     confirmedDoctor.name = doctor;
-    confirmedDoctor.spec = specialtyFromDoctorName(doctor) || confirmedDoctor.spec || currentDoctorListSpecialty || normalizeSpecialtyFromText(t);
+    // Doctor name is the most reliable source of specialty. Do not allow a
+    // stale or conflicting specialty word from the transcript/context to
+    // overwrite the selected doctor's actual department.
+    confirmedDoctor.spec = doctorSpec || confirmedDoctor.spec || currentDoctorListSpecialty || normalizeSpecialtyFromText(t);
   }
   const spec = normalizeSpecialtyFromText(t);
-  if (spec) confirmedDoctor.spec = spec;
+  if (spec && !doctorSpec) confirmedDoctor.spec = spec;
   const time = normalizeAppointmentTime(t);
   if (time) confirmedDateTime.time = time;
   const lower = t.toLowerCase();
