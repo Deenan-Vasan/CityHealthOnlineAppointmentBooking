@@ -274,10 +274,41 @@ function setUserText(step, text, options = {}) {
 /* ============================================================
    Context card actions
    ============================================================ */
-function showSymptomTags(symptoms) {
-  const list = Array.isArray(symptoms) && symptoms.length ? symptoms : ['Symptoms reported'];
+function cleanPatientMention(text) {
+  return String(text || '')
+    .replace(/[\"“”]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
-  // Show detected symptoms in the Step 2 context card.
+function symptomsFromUserMention(symptoms, userText) {
+  const stableComplaint = cleanPatientMention(symptomMentionText);
+  const spokenText = cleanPatientMention(userText || lastUserText);
+  const hasSignalSymptoms = Array.isArray(symptoms) && symptoms.length;
+  const signalList = hasSignalSymptoms
+    ? symptoms.map(s => cleanPatientMention(s)).filter(Boolean)
+    : [];
+
+  // Prefer the patient's original Step 2 complaint. Do not overwrite it with
+  // later follow-up answers such as food/routine details.
+  const displayText = stableComplaint || spokenText || signalList.join(', ') || 'Symptoms mentioned';
+  return {
+    displayText,
+    tagList: [displayText]
+  };
+}
+
+function looksLikeSymptomComplaint(text) {
+  const value = cleanPatientMention(text).toLowerCase();
+  if (!value) return false;
+  return /\b(fever|sore throat|throat|cough|cold|headache|body ache|body pain|pain|runny nose|fatigue|tired|chest pain|stomach pain|nausea|vomiting|dizziness|breathless|shortness of breath|rash|itching|ear pain)\b/i.test(value);
+}
+
+function showSymptomTags(symptoms, userText = lastUserText) {
+  const mention = symptomsFromUserMention(symptoms, userText);
+  const list = mention.tagList;
+
+  // Show what the patient actually mentioned in the Step 2 context card.
   const card = document.getElementById('s2ContextCard');
   const wrap = document.getElementById('s2SymptomTags');
   if (wrap) {
@@ -292,8 +323,9 @@ function showSymptomTags(symptoms) {
   }
   if (card) card.style.display = '';
 
-  // After symptoms are detected, update the persistent patient card on the left.
-  updatePatientCardSymptoms(list);
+  // After symptoms are mentioned, update the persistent patient card on the left
+  // with the user's spoken data rather than a generic detected-symptom fallback.
+  updatePatientCardSymptoms(mention.displayText);
 }
 
 function showVerifyingCard() {
@@ -584,6 +616,7 @@ const DOCTOR_ROSTER = {
 };
 
 let lastUserText       = '';
+let symptomMentionText = ''; // first Step 2 complaint from patient; keep stable across follow-up answers
 let lastAgentTranscript = ''; // last agent text, re-checked after step transitions
 let patientDraft = { phone:'', mrn:'', name:'' };
 let patientCardPopulated = false;
@@ -626,6 +659,7 @@ function handleUISignal(signal) {
       after(1800, () => {
         // Reset lastUserText so step 2→3 guard requires SYMPTOMS, not the name just spoken
         lastUserText = '';
+        symptomMentionText = '';
         goToStep(2);
         setScreenState(2, 'listening');
         startWave('s2Wave', false);
@@ -633,11 +667,7 @@ function handleUISignal(signal) {
       break;
 
     case 'symptoms_collected':
-      showSymptomTags(
-        Array.isArray(signal.symptoms) && signal.symptoms.length
-          ? signal.symptoms
-          : extractSymptomKeywords(lastUserText)
-      );
+      showSymptomTags(signal.symptoms, symptomMentionText || lastUserText);
       break;
 
     case 'advance_step': {
@@ -764,7 +794,11 @@ function handleUISignal(signal) {
     }
 
     case 'highlight_slot':
-      if (signal.time) highlightSlot(signal.time);
+      if (signal.time) {
+        const normalizedTime = normalizeAppointmentTime(signal.time) || String(signal.time).toUpperCase().trim();
+        confirmedDateTime.time = normalizedTime;
+        highlightSlot(normalizedTime);
+      }
       break;
 
     default:
@@ -800,9 +834,9 @@ function advanceByAgentTurn() {
     });
 
   } else if (currentStep === 2) {
-    showSymptomTags(extractSymptomKeywords(lastUserText));
+    showSymptomTags(null, symptomMentionText || lastUserText);
     after(800, () => {
-      populateDoctorList(detectSpecialty(lastUserText), 0);
+      populateDoctorList(detectSpecialty(symptomMentionText || lastUserText), 0);
       stepSpeakCount = 0;
       goToStep(3); setScreenState(3,'speaking'); startWave('s3Wave', true);
       unlockAndRetry();
@@ -843,16 +877,17 @@ function populatePatientCard(p = {}) {
 }
 
 function updatePatientCardSymptoms(symptoms) {
-  const list = Array.isArray(symptoms) && symptoms.length ? symptoms : ['Symptoms reported'];
-  const primary = list[0];
-  const rest = list.slice(1).join(', ');
+  const symptomText = Array.isArray(symptoms)
+    ? symptoms.map(s => cleanPatientMention(s)).filter(Boolean).join(', ')
+    : cleanPatientMention(symptoms);
+  const displayText = symptomText || 'Symptoms mentioned';
 
   const symptomEl = document.getElementById('s1Diagnosis');
   const detailEl = document.getElementById('s1Medication');
   const dx = document.getElementById('s1DiagnosisCard');
 
-  if (symptomEl) symptomEl.textContent = primary;
-  if (detailEl) detailEl.textContent = rest || primary;
+  if (symptomEl) symptomEl.textContent = displayText;
+  if (detailEl) detailEl.textContent = displayText;
   if (dx) dx.style.display = '';
 }
 
@@ -1263,7 +1298,7 @@ function handleAgentTranscript(agentText) {
     stepLocked = true;
     // Detect specialty from the agent text
     const specialty = specialtyFromDoctorName(agentText) || normalizeSpecialtyFromText(agentText) || detectSpecialty(agentText);
-    showSymptomTags(extractSymptomKeywords(lastUserText));
+    showSymptomTags(null, symptomMentionText || lastUserText);
     after(900, () => {
       populateDoctorList(specialty, 0);
       confirmedDoctor.spec = specialty;
@@ -1300,22 +1335,37 @@ function handleAgentTranscript(agentText) {
     return;
   }
 
-  // Step 3 or 4 → 5: Agent confirms the booking
-  if ((currentStep === 3 || currentStep === 4) &&
-      (lower.includes('appointment is confirmed') ||
-       lower.includes('your appointment') && lower.includes('confirmed') ||
-       lower.includes('i\'m confirming') ||
-       lower.includes('sms and whatsapp') ||
-       lower.includes('reminders 24 hours'))) {
+  // Step 3 or 4 -> 5: Agent confirms/acknowledges the selected booking slot.
+  // Some live agent responses say "Perfect — I've noted tomorrow at nine thirty AM"
+  // without the exact word "confirmed". Treat those as booking confirmation too,
+  // otherwise the UI stays stuck on the Schedule step even though the slot is set.
+  const hasTime = !!confirmedDateTime.time || /\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/i.test(agentText) ||
+                  /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)(?:[-\s]+(fifteen|quarter|thirty|half|forty[-\s]?five|twenty[-\s]?five|twenty|ten|forty|fifty))?\s*(?:AM|PM|a\.m\.|p\.m\.|in the morning|morning|afternoon|evening|night)\b/i.test(agentText);
+  const hasDateCue = !!confirmedDateTime.date || /\b(today|tomorrow|sunday|monday|tuesday|wednesday|thursday|friday|saturday|jan|feb|mar|apr|may|jun|june|jul|july|aug|sep|oct|nov|dec)\b/i.test(agentText);
+  const bookingAcknowledged = (
+    lower.includes('appointment is confirmed') ||
+    (lower.includes('your appointment') && lower.includes('confirmed')) ||
+    lower.includes('i\'m confirming') ||
+    lower.includes('sms and whatsapp') ||
+    lower.includes('reminders 24 hours') ||
+    (currentStep === 4 && hasTime && hasDateCue && (
+      lower.includes('i\'ve noted') || lower.includes('i have noted') ||
+      lower.includes('noted') || lower.includes('booked') ||
+      lower.includes('scheduled') || lower.includes('reserved') ||
+      (lower.includes('perfect') && lower.includes('for you'))
+    ))
+  );
+
+  if ((currentStep === 3 || currentStep === 4) && bookingAcknowledged) {
     stepLocked = true;
-    const slotM = agentText.match(/\b(\d{1,2}:\d{2}\s*(?:AM|PM))\b/i);
-    if (slotM) confirmedDateTime.time = slotM[1].toUpperCase().trim();
+    const detectedTime = normalizeAppointmentTime(agentText);
+    if (detectedTime) confirmedDateTime.time = detectedTime;
     const dateM = agentText.match(/\b(june|july|aug|sep|oct|nov|dec|jan|feb|mar|apr|may)\s+(\d{1,2})\b/i);
     if (dateM) {
       const offset = dayNameToOffset(`${dateM[1]} ${dateM[2]}`);
       confirmedDateTime.date = offsetToDateLabel(offset) + ' ' + new Date().getFullYear();
     }
-    after(1000, () => {
+    after(700, () => {
       populateConfirmCard(); goToStep(5); runDbAnimation();
       unlockAndRetry();
     });
@@ -1324,7 +1374,13 @@ function handleAgentTranscript(agentText) {
 
 /* ── Also advance on USER transcript (backup path) ─────────── */
 function onUserTurnComplete(userText) {
-  lastUserText = userText;
+  const cleaned = cleanPatientMention(userText);
+  lastUserText = cleaned;
+  if (currentStep === 2 && !symptomMentionText && looksLikeSymptomComplaint(cleaned)) {
+    symptomMentionText = cleaned;
+    // Keep the left patient card in sync as soon as the patient states symptoms.
+    updatePatientCardSymptoms(symptomMentionText);
+  }
   liveTurnCount++;
 }
 
@@ -1550,6 +1606,7 @@ async function openBookingFlow() {
   stepSpeakCount     = 0;
   stepLocked         = false;
   lastUserText       = '';
+  symptomMentionText = '';
   listeningStartTime = Date.now();
   overlay.classList.add('is-open');
   overlay.setAttribute('aria-hidden', 'false');
@@ -1589,6 +1646,8 @@ async function closeBookingFlow() {
 
 function resetBookingScreens() {
   patientDraft = { phone:'', mrn:'', name:'' };
+  symptomMentionText = '';
+  lastUserText = '';
   patientCardPopulated = false;
   confirmedDoctor = { name:'', spec:'', fee:'' };
   currentDoctorListSpecialty = '';
